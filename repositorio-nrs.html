@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repositorio de Pantallas NRS</title>
+<style>
+  :root{
+    --canvas:#f6f6f8;
+    --surface:#ffffff;
+    --surface-2:#fbfbfc;
+    --ink:#19191f;
+    --muted:#6b6b75;
+    --faint:#9a9aa4;
+    --line:#e6e6ea;
+    --line-strong:#d6d6dc;
+    --accent:#ff7900;
+    --accent-ink:#cc5f00;
+    --accent-soft:#fff1e3;
+    --black:#000;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(20,20,30,.05), 0 2px 8px rgba(20,20,30,.04);
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:var(--sans);color:var(--ink);background:var(--canvas);
+    font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  button{font-family:inherit;font-size:13px;cursor:pointer}
+  input,textarea,select{font-family:inherit;font-size:13px}
+
+  /* ---------- TOP BAR ---------- */
+  .topbar{
+    display:flex;align-items:center;gap:14px;
+    padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line);
+    flex:0 0 auto;z-index:20;
+  }
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+  .brand h1{font-size:15px;font-weight:650;letter-spacing:-.01em;margin:0;white-space:nowrap}
+  .brand .count{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+
+  .search{position:relative;flex:1;max-width:520px}
+  .search input{
+    width:100%;padding:9px 12px 9px 34px;border:1px solid var(--line-strong);
+    border-radius:8px;background:var(--surface-2);outline:none;
+  }
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fff}
+  .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--faint)}
+  .search kbd{
+    position:absolute;right:8px;top:50%;transform:translateY(-50%);
+    font-family:var(--mono);font-size:11px;color:var(--faint);
+    border:1px solid var(--line);border-radius:5px;padding:1px 6px;background:#fff;
+  }
+
+  .toolbar{display:flex;align-items:center;gap:8px;margin-left:auto}
+  .toolbar label{font-size:12px;color:var(--muted)}
+  select.ctrl,.btn{
+    border:1px solid var(--line-strong);background:#fff;border-radius:8px;
+    padding:8px 11px;color:var(--ink);white-space:nowrap;
+  }
+  select.ctrl{padding:7px 9px}
+  .btn:hover,select.ctrl:hover{border-color:var(--faint)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn.primary:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  .btn.ghost:hover{background:var(--canvas);color:var(--ink)}
+
+  /* ---------- LAYOUT ---------- */
+  .layout{display:flex;flex:1;min-height:0}
+
+  /* ---------- FILTER RAIL ---------- */
+  .rail{
+    width:248px;flex:0 0 auto;border-right:1px solid var(--line);
+    background:var(--surface);overflow-y:auto;padding:14px 14px 30px;
+  }
+  .rail .rail-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .rail h2{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0}
+  .clear-all{font-size:12px;color:var(--accent-ink);background:none;border:none;padding:0}
+  .clear-all:hover{text-decoration:underline}
+  .facet{margin-top:18px}
+  .facet > h3{
+    font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 8px;
+  }
+  .facet-list{display:flex;flex-direction:column;gap:2px}
+  .facet-item{
+    display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:7px;
+    cursor:pointer;user-select:none;
+  }
+  .facet-item:hover{background:var(--canvas)}
+  .facet-item.on{background:var(--accent-soft)}
+  .facet-item .box{
+    width:15px;height:15px;border:1.5px solid var(--line-strong);border-radius:4px;flex:0 0 auto;
+    display:grid;place-items:center;color:#fff;
+  }
+  .facet-item.on .box{background:var(--accent);border-color:var(--accent)}
+  .facet-item .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .facet-item .n{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .facet-empty{font-size:12px;color:var(--faint);padding:2px 7px}
+
+  /* ---------- MAIN ---------- */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .activebar{
+    display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 18px;
+    border-bottom:1px solid var(--line);min-height:0;
+  }
+  .activebar.hidden{display:none}
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);
+    color:var(--accent-ink);border:1px solid #ffd9b3;border-radius:999px;
+    padding:3px 6px 3px 10px;font-size:12px;font-weight:500;
+  }
+  .chip b{font-weight:600}
+  .chip button{background:none;border:none;color:var(--accent-ink);font-size:14px;line-height:1;padding:0 2px;opacity:.7}
+  .chip button:hover{opacity:1}
+
+  .scroll{flex:1;overflow-y:auto;padding:18px 18px 60px}
+  .group{margin-bottom:26px}
+  .group-head{
+    display:flex;align-items:center;gap:8px;margin:0 0 12px;cursor:pointer;user-select:none;
+  }
+  .group-head .caret{transition:transform .15s ease;color:var(--faint)}
+  .group.collapsed .caret{transform:rotate(-90deg)}
+  .group-head .gname{font-size:13px;font-weight:650}
+  .group-head .gn{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .group-head .rule{flex:1;height:1px;background:var(--line)}
+  .group.collapsed .grid{display:none}
+
+  /* group title filter */
+  .group-filter{
+    border:1px solid var(--line-strong);border-radius:6px;padding:3px 8px;
+    background:var(--surface-2);outline:none;font-size:12px;width:150px;
+    cursor:text;user-select:text;
+  }
+  .group-filter:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);background:#fff}
+
+  .grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;
+  }
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;cursor:pointer;box-shadow:var(--shadow);
+    transition:border-color .12s ease, box-shadow .12s ease, transform .12s ease;
+    display:flex;flex-direction:column;
+  }
+  .card:hover{border-color:var(--line-strong);box-shadow:0 4px 14px rgba(20,20,30,.08);transform:translateY(-1px)}
+  .card.selected{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .thumb{height:152px;background:#000;overflow:hidden;position:relative;border-bottom:1px solid var(--line)}
+  .thumb .empty{display:grid;place-items:center;height:100%;color:#5a5a5a;font-size:12px}
+  .card-body{padding:10px 12px 12px}
+  .card-title{font-size:13px;font-weight:600;letter-spacing:-.005em;margin:0 0 4px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card-tpl{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .badges{display:flex;flex-wrap:wrap;gap:4px}
+  .badge{
+    font-size:10.5px;font-weight:500;padding:2px 7px;border-radius:999px;
+    background:var(--canvas);border:1px solid var(--line);color:var(--muted);
+  }
+  .badge.zona{background:#eef4ff;border-color:#d8e6ff;color:#2d5bbd}
+  .badge.grupo{background:#f0f9ee;border-color:#d6eccf;color:#3c7a2e}
+  .badge.tag{background:var(--accent-soft);border-color:#ffd9b3;color:var(--accent-ink)}
+  .badge.dispositivo{background:#eef0ff;border-color:#c8ceff;color:#3040c0}
+  .badge.marca{background:#ffeef5;border-color:#ffcce0;color:#b02060}
+
+  .empty-state{
+    text-align:center;color:var(--muted);max-width:420px;margin:8vh auto 0;
+  }
+  .empty-state h3{font-size:16px;color:var(--ink);margin:0 0 6px}
+  .empty-state p{margin:0 0 16px}
+
+  /* ---------- DETAIL DRAWER ---------- */
+  .detail{
+    width:0;flex:0 0 auto;background:var(--surface);border-left:1px solid var(--line);
+    overflow:hidden;display:flex;flex-direction:column;transition:width .18s ease;
+  }
+  .detail.open{width:440px}
+  .detail-inner{width:440px;display:flex;flex-direction:column;height:100%}
+  .detail-head{
+    display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);flex:0 0 auto;
+  }
+  .detail-head .t{font-size:13px;font-weight:650;flex:1}
+  .icon-btn{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--line);
+    background:#fff;border-radius:7px;color:var(--muted)}
+  .icon-btn:hover{border-color:var(--faint);color:var(--ink)}
+  .detail-body{flex:1;overflow-y:auto;padding:14px}
+
+  .preview-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
+  .seg button{padding:5px 11px;background:#fff;border:none;color:var(--muted);font-size:12px}
+  .seg button.on{background:var(--ink);color:#fff}
+  .seg button:disabled{opacity:.4;cursor:not-allowed}
+  .preview-host{background:#000;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+  .preview-host .empty{display:grid;place-items:center;min-height:140px;color:#666;font-size:12px;text-align:center;padding:20px}
+  .preview-host img{cursor:zoom-in}
+
+  .field{margin-top:16px}
+  .field label{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .field input[type=text]{
+    width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;
+    background:var(--surface-2);outline:none;
+  }
+  .field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fff}
+
+  .tag-edit{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .tag-pill{display:inline-flex;align-items:center;gap:5px;background:var(--accent-soft);
+    border:1px solid #ffd9b3;color:var(--accent-ink);border-radius:999px;padding:3px 6px 3px 10px;font-size:12px}
+  .tag-pill button{background:none;border:none;color:var(--accent-ink);font-size:13px;padding:0;line-height:1;opacity:.7}
+  .tag-pill button:hover{opacity:1}
+  .tag-edit input{flex:1;min-width:90px;border:none;outline:none;padding:6px 4px;background:transparent}
+  .tag-box{border:1px solid var(--line-strong);border-radius:8px;padding:5px 7px;background:var(--surface-2)}
+  .tag-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fff}
+
+  /* elements breakdown */
+  .elements{margin-top:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .el-group{border-top:1px solid var(--line)}
+  .el-group:first-child{border-top:none}
+  .el-group h4{
+    margin:0;padding:7px 10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);background:var(--surface-2);display:flex;justify-content:space-between;align-items:center;
+  }
+  .el-group h4 .gc{color:var(--faint);font-weight:600}
+  .el-row{display:flex;gap:8px;padding:6px 10px;border-top:1px dashed var(--line);align-items:baseline}
+  .el-row:first-of-type{border-top:none}
+  .el-key{font-family:var(--mono);font-size:11px;color:var(--accent-ink);flex:0 0 38%;word-break:break-word}
+  .el-val{font-size:12px;color:var(--ink);flex:1;word-break:break-word}
+  .el-val.path{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .el-val.path a{color:var(--accent-ink);text-decoration:none;word-break:break-all}
+  .el-val.path a:hover{text-decoration:underline}
+  .el-empty{padding:8px 10px;font-size:12px;color:var(--faint)}
+
+  .json-head{display:flex;align-items:center;justify-content:space-between}
+  .json-status{font-size:11px;font-weight:600}
+  .json-status.ok{color:#3c7a2e}
+  .json-status.err{color:#c0392b}
+  textarea.json{
+    width:100%;height:230px;resize:vertical;font-family:var(--mono);font-size:12px;line-height:1.5;
+    border:1px solid var(--line-strong);border-radius:8px;padding:10px;background:var(--surface-2);outline:none;
+    color:var(--ink);
+  }
+  textarea.json:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fff}
+  textarea.json.err{border-color:#e7a59b;background:#fff6f4}
+
+  .detail-foot{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line);flex:0 0 auto}
+  .detail-foot .btn{flex:1;text-align:center}
+  .btn.danger{color:#c0392b;border-color:#edc9c2}
+  .btn.danger:hover{background:#fdf0ee}
+
+  /* preview renderer */
+  .preview-wrapper{background:#000;padding:8px;display:inline-block}
+  .preview{
+    position:relative;padding:30px;background:#000;background-size:cover;background-position:center;
+    background-repeat:no-repeat;color:#fff;text-shadow:0 0 4px rgba(0,0,0,.75);
+    min-height:460px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;
+  }
+  .preview--vertical{min-height:700px}
+  .preview .block{text-align:center;margin:10px auto}
+  .preview .logo-block{width:100%;display:flex;justify-content:center;margin-top:10px}
+  .preview .text-block{width:90%;font-size:20px;font-weight:bold}
+  .preview .columns{display:flex;width:100%;gap:40px;margin-top:30px}
+  .preview .column{flex:1;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .preview .button{font-weight:bold;border:1px solid rgba(255,255,255,.8);padding:6px 12px;
+    background:rgba(0,0,0,.35);border-radius:5px;display:inline-block}
+  .preview .separator{width:80%;border:0;border-top:1px solid rgba(255,255,255,.7);margin:20px auto}
+  .preview a{color:#fff;text-decoration:underline;font-weight:bold}
+  .preview img{max-width:100%;height:auto}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(20,20,30,.4);display:none;place-items:center;z-index:50}
+  .overlay.open{display:grid}
+  .modal{background:#fff;border-radius:12px;width:min(520px,92vw);max-height:88vh;overflow:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,.25);padding:20px}
+  .modal h3{margin:0 0 4px;font-size:16px}
+  .modal p{margin:0 0 14px;color:var(--muted);font-size:13px}
+  .modal textarea{width:100%;height:180px;font-family:var(--mono);font-size:12px;
+    border:1px solid var(--line-strong);border-radius:8px;padding:10px;outline:none}
+  .modal .row{margin-bottom:12px}
+  .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+
+  .toast{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;
+    opacity:0;pointer-events:none;transition:all .2s ease;z-index:60;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* lightbox */
+  .lightbox{
+    position:fixed;inset:0;background:rgba(10,10,15,.88);
+    display:none;place-items:center;z-index:200;cursor:zoom-out;
+  }
+  .lightbox.open{display:grid}
+  .lightbox-inner{position:relative;display:flex;align-items:center;justify-content:center}
+  .lightbox-inner img{max-width:90vw;max-height:88vh;border-radius:8px;box-shadow:0 4px 40px rgba(0,0,0,.6);display:block;cursor:default}
+  .lightbox-close{
+    position:absolute;top:-16px;right:-16px;
+    background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;
+    font-size:20px;width:34px;height:34px;border-radius:50%;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .lightbox-close:hover{background:rgba(255,255,255,.32)}
+
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <h1>Repositorio de Pantallas NRS</h1>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="search" type="text" placeholder="Buscar en todos los campos: nombre, texto, imágenes, botones…" autocomplete="off">
+    <kbd>/</kbd>
+  </div>
+
+  <div class="toolbar">
+    <label for="groupBy">Agrupar:</label>
+    <select id="groupBy" class="ctrl">
+      <option value="none">Sin agrupar</option>
+      <option value="zona" selected>Zona</option>
+      <option value="grupo">Grupo</option>
+      <option value="plantilla">Plantilla</option>
+      <option value="tag">Tag</option>
+    </select>
+    <button class="btn ghost" id="cfgBtn" title="Base URL de imágenes">⚙︎ Imágenes</button>
+    <button class="btn ghost" id="importBtn">Importar</button>
+    <button class="btn ghost" id="exportBtn">Exportar</button>
+    <button class="btn primary" id="addBtn">+ Nueva pantalla</button>
+  </div>
+</div>
+
+<!-- ===== LAYOUT ===== -->
+<div class="layout">
+
+  <!-- filter rail -->
+  <aside class="rail" id="rail">
+    <div class="rail-head">
+      <h2>Filtros</h2>
+      <button class="clear-all" id="clearAll" style="display:none">Limpiar</button>
+    </div>
+    <div id="facets"></div>
+  </aside>
+
+  <!-- main -->
+  <main class="main">
+    <div class="activebar hidden" id="activebar"></div>
+    <div class="scroll" id="scroll"></div>
+  </main>
+
+  <!-- detail -->
+  <section class="detail" id="detail">
+    <div class="detail-inner" id="detailInner"></div>
+  </section>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div class="toast" id="toast"></div>
+
+<!-- ===== LIGHTBOX ===== -->
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-inner">
+    <button class="lightbox-close" id="lightboxClose">×</button>
+    <img id="lightboxImg" src="" alt="">
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="application/json,.json" style="display:none">
+
+<script>
+/* =================================================================
+   REPOSITORIO DE PANTALLAS NRS
+   ================================================================= */
+
+const USE_BACKEND = false;
+const API = "http://localhost:3001/screens";
+const LS_KEY  = "nrs_repo_v1";
+const LS_BASE = "nrs_repo_baseurl";
+
+const store = {
+  async loadAll(){
+    if(USE_BACKEND){
+      const r = await fetch(API);
+      return await r.json();
+    }
+    try{ return JSON.parse(localStorage.getItem(LS_KEY)) || null; }
+    catch{ return null; }
+  },
+  async saveAll(list){
+    if(USE_BACKEND) return;
+    localStorage.setItem(LS_KEY, JSON.stringify(list));
+  }
+};
+
+/* -----------------------------------------------------------------
+   ESTADO
+   ----------------------------------------------------------------- */
+let screens = [];
+const state = {
+  search: "",
+  facets: {
+    plantilla: new Set(),
+    zona: new Set(),
+    grupo: new Set(),
+    dispositivo: new Set(),
+    marca: new Set(),
+    elemento: new Set()
+  },
+  groupBy: "zona",
+  baseUrl: localStorage.getItem(LS_BASE) || "https://orangetv.orange.es/pc/api/rtv/v1/images/",
+  mode: "horizontal",
+  selectedId: null,
+  collapsed: new Set()
+};
+
+const $ = s => document.querySelector(s);
+
+/* =================================================================
+   RENDERER
+   ================================================================= */
+function buildImageUrl(baseUrl, path){
+  if(!path || !String(path).trim()) return "";
+  return baseUrl.replace(/\/+$/,"") + "/" + String(path).replace(/^\/+/,"");
+}
+function resolveLinks(text, links){
+  if(text==null || typeof text!=="string") return text==null?"":String(text);
+  let result = text;
+  if(Array.isArray(links)){
+    result = result.replace(/\$\{links\.(\w+)\}/g, (m,key)=>{
+      const l = links.find(x=>x.key===key);
+      if(!l) return m;
+      const title = l.title || l.destination || key;
+      const dest  = l.destination || "#";
+      return `<a href="${dest}" target="_blank" rel="noopener">${title}</a>`;
+    });
+  }
+  return result.replace(/\n/g,"<br>");
+}
+function safeTexts(obj, links){
+  const out = {};
+  for(const k of Object.keys(obj||{})) out[k] = resolveLinks(obj[k], links);
+  return new Proxy(out, { get:(o,k)=> (k in o ? o[k] : "") });
+}
+function imgTag(src, style){
+  if(!src) return "";
+  return `<img src="${src}" style="${style||""}" onerror="this.style.display='none'">`;
+}
+
+function renderInner(data, ctx){
+  const style = data.style || {};
+  const name  = style.name || "";
+  const t = safeTexts(style.texts, style.links);
+  const i = style.images || {};
+  const a = style.actions || [];
+  const bi = p => buildImageUrl(ctx.baseUrl, p);
+  const vertical = ctx.mode === "vertical";
+
+  switch(name){
+
+    case "NRS_3zones_2buttons": {
+      if(!vertical){
+        return `
+          <div class="logo-block">${imgTag(bi(i.logo),"max-width:55%")}</div>
+          <div class="block text-block">${t.text1}</div>
+          <div class="block text-block">${t.text2}</div>
+          <div class="columns">
+            <div class="column">
+              <div>${t.textLeft1}</div><div>${t.textLeft2}</div>
+              ${imgTag(bi(i.left),"max-width:100%;max-height:160px")}
+              ${a[0]?`<span class="button">${a[0].buttonLabel||""}</span>`:""}
+            </div>
+            <div class="column">
+              <div>${t.textRight1}</div><div>${t.textRight2}</div>
+              ${imgTag(bi(i.right),"max-width:100%;max-height:160px")}
+              ${a[1]?`<span class="button">${a[1].buttonLabel||""}</span>`:""}
+            </div>
+          </div>`;
+      }
+      return `
+        <div class="logo-block">${imgTag(bi(i.logo),"max-width:55%")}</div>
+        <div class="block text-block">${t.text1}</div>
+        <div class="block text-block">${t.text2}</div>
+        <div class="column">
+          <div>${t.textLeft1}</div><div>${t.textLeft2}</div>
+          ${imgTag(bi(i.left),"max-width:100%")}
+          ${a[0]?`<span class="button">${a[0].buttonLabel||""}</span>`:""}
+        </div>
+        <hr class="separator">
+        <div class="column">
+          <div>${t.textRight1}</div><div>${t.textRight2}</div>
+          ${imgTag(bi(i.right),"max-width:100%")}
+          ${a[1]?`<span class="button">${a[1].buttonLabel||""}</span>`:""}
+        </div>`;
+    }
+
+    case "NRS_1_zone_NObuttons_centerDown":
+      return `
+        <div class="logo-block">${imgTag(bi(i.logo),"max-width:60%")}</div>
+        <div class="block text-block">${t.text1}</div>
+        <div class="block">${t.text2}</div>
+        <div class="block">${t.text3}</div>
+        <div class="block">${t.text4}</div>
+        ${i.center?`<div class="block">${imgTag(bi(i.center),"max-width:70%")}</div>`:""}
+        <div class="block">${t.text5}</div>
+        <div class="block">${t.text6}</div>`;
+
+    case "NRS_1zone_1button_centerDown":
+      return `
+        <div class="logo-block">${imgTag(bi(i.logo),"max-width:60%")}</div>
+        <div class="block text-block">${t.text1}</div>
+        <div class="block">${t.text2}</div>
+        <div class="block">${t.text3}</div>
+        ${i.center?`<div class="block">${imgTag(bi(i.center),"max-width:70%")}</div>`:""}
+        ${a[0]?`<div class="block"><span class="button">${a[0].buttonLabel||""}</span></div>`:""}`;
+
+    case "NRS_1zone_2buttons_centerDown":
+      return `
+        <div class="logo-block">${imgTag(bi(i.logo),"max-width:60%")}</div>
+        <div class="block text-block">${t.text1}</div>
+        <div class="block">${t.text2}</div>
+        <div class="block">${t.text3}</div>
+        <div class="block">
+          ${a[0]?`<span class="button">${a[0].buttonLabel||""}</span>`:""}
+          ${a[1]?`<span class="button" style="margin-left:10px">${a[1].buttonLabel||""}</span>`:""}
+        </div>`;
+
+    case "NRS_3zones_1button_right": {
+      const a0 = a[0];
+      if(!vertical){
+        return `
+          ${i.logo?`<div class="logo-block">${imgTag(bi(i.logo),"max-width:55%")}</div>`:""}
+          <div class="block text-block">${t.text1}</div>
+          <div class="block text-block">${t.text2}</div>
+          <div class="columns">
+            <div class="column">
+              <div>${t.textLeft1}</div><div>${t.textLeft2}</div>
+              ${imgTag(bi(i.left),"max-width:100%")}<div>${t.textLeft3}</div>
+            </div>
+            <div class="column">
+              <div>${t.textRight1}</div><div>${t.textRight2}</div>
+              ${imgTag(bi(i.right),"max-width:100%")}
+              ${a0?`<span class="button">${a0.buttonLabel||""}</span>`:""}
+            </div>
+          </div>`;
+      }
+      return `
+        ${i.logo?`<div class="logo-block">${imgTag(bi(i.logo),"max-width:55%")}</div>`:""}
+        <div class="block text-block">${t.text1}</div>
+        <div class="block text-block">${t.text2}</div>
+        <div class="column">
+          <div>${t.textLeft1}</div><div>${t.textLeft2}</div>
+          ${imgTag(bi(i.left),"max-width:100%")}<div>${t.textLeft3}</div>
+        </div>
+        <hr class="separator">
+        <div class="column">
+          <div>${t.textRight1}</div><div>${t.textRight2}</div>
+          ${imgTag(bi(i.right),"max-width:100%")}
+          ${a0?`<span class="button">${a0.buttonLabel||""}</span>`:""}
+        </div>`;
+    }
+
+    case "NRS_3zones_NObuttons":
+      return `
+        <div class="block text-block">${t.text1}</div>
+        <div class="block text-block">${t.text2}</div>
+        <div class="columns">
+          <div class="column">
+            <div>${t.textLeft1}</div><div>${t.textLeft2}</div>
+            ${imgTag(bi(i.left),"max-width:100%")}
+          </div>
+          <div class="column">
+            <div>${t.textRight1}</div><div>${t.textRight2}</div>
+            ${imgTag(bi(i.right),"max-width:100%")}
+          </div>
+        </div>`;
+
+    case "QR_2steps_1zone_1button": {
+      const a0 = a[0];
+      const step2Image = i.animated ? bi(i.animated) : (i.notAnimated ? bi(i.notAnimated) : "");
+      const step2Text  = t.text2_step2_general || t.text2_step2_ok || t.text2_step2_ko || "";
+      return `
+        ${i.stepIcon1?`<div class="block">${imgTag(bi(i.stepIcon1),"max-width:45%")}</div>`:""}
+        <div class="block text-block">${t.text1_step1}</div>
+        ${i.QR?`<div class="block">${imgTag(bi(i.QR),"max-width:60%")}</div>`:""}
+        <div class="block">${t.text2_step1}</div>
+        ${a0?`<div class="block"><span class="button">${a0.buttonLabel||""}</span></div>`:""}
+        <hr class="separator">
+        ${i.stepIcon2?`<div class="block">${imgTag(bi(i.stepIcon2),"max-width:45%")}</div>`:""}
+        <div class="block text-block">${t.text1_step2}</div>
+        ${step2Image?`<div class="block"><img src="${step2Image}" style="max-width:60%" onerror="this.style.display='none'"></div>`:""}
+        <div class="block">${step2Text}</div>
+        ${a0?`<div class="block"><span class="button">${a0.buttonLabel||""}</span></div>`:""}`;
+    }
+
+    default:
+      return name
+        ? `<div style="padding:24px;color:#bbb;font-size:13px">Plantilla no implementada:<br><b style="color:#fff">${name}</b></div>`
+        : `<div style="padding:24px;color:#888;font-size:13px;text-align:center">Sin plantilla.<br>Edita el JSON y define <code>style.name</code>.</div>`;
+  }
+}
+
+function mountPreview(container, data, opts){
+  opts = opts || {};
+  const mode = opts.mode || "horizontal";
+  const fit  = opts.fit  || "contain";
+  const DESIGN_W = mode === "vertical" ? 600 : 900;
+
+  container.innerHTML = "";
+  const styleName = data && data.style && data.style.name;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "preview-wrapper";
+  wrapper.style.width = DESIGN_W + "px";
+
+  const preview = document.createElement("div");
+  preview.className = "preview" + (mode==="vertical" ? " preview--vertical" : "");
+
+  const imgs = (data && data.images) || {};
+  const bgPath = (mode==="vertical" && imgs.vertical && imgs.vertical.trim())
+    ? imgs.vertical : imgs.horizontal;
+  preview.style.backgroundImage = bgPath ? `url('${buildImageUrl(opts.baseUrl||state.baseUrl, bgPath)}')` : "none";
+
+  preview.innerHTML = renderInner(data || {}, { baseUrl: opts.baseUrl || state.baseUrl, mode });
+  wrapper.appendChild(preview);
+  container.appendChild(wrapper);
+
+  requestAnimationFrame(()=>{
+    const cw = container.clientWidth || DESIGN_W;
+    const scale = cw / DESIGN_W;
+    wrapper.style.transformOrigin = "top left";
+    wrapper.style.transform = `scale(${scale})`;
+    if(fit === "contain"){
+      container.style.height = (wrapper.scrollHeight * scale) + "px";
+    }
+  });
+}
+
+/* =================================================================
+   EXTRACCIÓN DE ELEMENTOS
+   ================================================================= */
+const IMG_LABELS = {
+  logo:"Logo", left:"Imagen izquierda", right:"Imagen derecha", center:"Imagen central",
+  QR:"QR", stepIcon1:"Icono paso 1", stepIcon2:"Icono paso 2",
+  animated:"Animación", notAnimated:"Imagen estática",
+  horizontal:"Fondo horizontal", vertical:"Fondo vertical"
+};
+
+function collectUrls(obj, result, path){
+  result = result || []; path = path || "";
+  if(typeof obj === "string"){
+    if(/^https?:\/\//.test(obj)) result.push({ path, value: obj });
+  } else if(Array.isArray(obj)){
+    obj.forEach((v,i) => collectUrls(v, result, path ? path+"["+i+"]" : "["+i+"]"));
+  } else if(obj && typeof obj === "object"){
+    for(const k of Object.keys(obj)) collectUrls(obj[k], result, path ? path+"."+k : k);
+  }
+  return result;
+}
+
+function extractElements(data){
+  data = data || {};
+  const style = data.style || {};
+  const out = { template: style.name || "", texts:[], images:[], buttons:[], links:[], urlValues:[] };
+
+  const tx = style.texts || {};
+  for(const k of Object.keys(tx)){
+    const v = tx[k];
+    if(v!=null && String(v).trim()!=="") out.texts.push({ key:k, value:String(v) });
+  }
+  const imgSrc = Object.assign({}, data.images || {}, style.images || {});
+  for(const k of Object.keys(imgSrc)){
+    const v = imgSrc[k];
+    if(v!=null && String(v).trim()!=="") out.images.push({ key:k, label:IMG_LABELS[k]||k, value:String(v) });
+  }
+  (style.actions||[]).forEach((act,idx)=>{
+    out.buttons.push({ key:`acción ${idx+1}`, label:act.buttonLabel||"(sin texto)", action:act.action||act.type||"" });
+  });
+  (style.links||[]).forEach(l=>{
+    out.links.push({ key:l.key||"", title:l.title||"", destination:l.destination||"" });
+  });
+
+  // Collect all http/https values from JSON, excluding already-shown link destinations
+  const knownDests = new Set(out.links.map(l=>l.destination));
+  out.urlValues = collectUrls(data).filter(u => !knownDests.has(u.value));
+
+  return out;
+}
+
+function elementFlags(data){
+  const el = extractElements(data);
+  const flags = new Set();
+  el.images.forEach(im=>{
+    if(im.key==="logo") flags.add("Logo");
+    else if(im.key==="QR") flags.add("QR");
+    else if(im.key==="vertical") flags.add("Fondo vertical");
+    else flags.add("Imágenes");
+  });
+  if(el.buttons.length) flags.add("Botones");
+  if(el.links.length)   flags.add("Enlaces");
+  if(el.texts.length)   flags.add("Textos");
+  return flags;
+}
+
+function searchBlob(s){
+  const el = extractElements(s.json);
+  return [
+    s.nombre,
+    (s.zonas||[]).join(" "),
+    (s.grupos||[]).join(" "),
+    (s.tagDispositivos||[]).join(" "),
+    (s.tagMarca||[]).join(" "),
+    el.template,
+    el.texts.map(x=>x.key+" "+x.value).join(" "),
+    el.images.map(x=>x.key+" "+x.value).join(" "),
+    el.buttons.map(x=>x.label+" "+x.action).join(" "),
+    el.links.map(x=>x.title+" "+x.destination).join(" ")
+  ].join(" ").toLowerCase();
+}
+
+/* =================================================================
+   FILTRADO
+   ================================================================= */
+function passesFilters(s){
+  const f = state.facets;
+  if(f.plantilla.size && !f.plantilla.has(s.json?.style?.name || "—")) return false;
+  const zones = s.zonas && s.zonas.length ? s.zonas : ["—"];
+  if(f.zona.size && !zones.some(z=>f.zona.has(z))) return false;
+  const grupos = s.grupos && s.grupos.length ? s.grupos : ["—"];
+  if(f.grupo.size && !grupos.some(g=>f.grupo.has(g))) return false;
+  if(f.dispositivo.size && !(s.tagDispositivos||[]).some(t=>f.dispositivo.has(t))) return false;
+  if(f.marca.size && !(s.tagMarca||[]).some(t=>f.marca.has(t))) return false;
+  if(f.elemento.size){
+    const flags = elementFlags(s.json);
+    for(const need of f.elemento) if(!flags.has(need)) return false;
+  }
+  if(state.search){
+    if(!searchBlob(s).includes(state.search.toLowerCase())) return false;
+  }
+  return true;
+}
+function visibleScreens(){ return screens.filter(passesFilters); }
+
+/* =================================================================
+   RENDER: facetas, grid, detalle
+   ================================================================= */
+function tally(getter){
+  const m = new Map();
+  screens.forEach(s=>{
+    const vals = getter(s);
+    (Array.isArray(vals)?vals:[vals]).forEach(v=>{
+      const key = (v==null || v==="") ? "—" : v;
+      m.set(key, (m.get(key)||0)+1);
+    });
+  });
+  return [...m.entries()].sort((a,b)=> b[1]-a[1] || String(a[0]).localeCompare(String(b[0])));
+}
+
+function renderFacets(){
+  const host = $("#facets");
+  host.innerHTML = "";
+
+  const groups = [
+    ["plantilla","Plantilla", s=> s.json?.style?.name || "—"],
+    ["zona","Zona", s=> s.zonas&&s.zonas.length ? s.zonas : ["—"]],
+    ["grupo","Grupo", s=> s.grupos&&s.grupos.length ? s.grupos : ["—"]],
+    ["dispositivo","Dispositivos", s=> s.tagDispositivos&&s.tagDispositivos.length ? s.tagDispositivos : ["—"]],
+    ["marca","Marca", s=> s.tagMarca&&s.tagMarca.length ? s.tagMarca : ["—"]],
+    ["elemento","Elementos", s=> [...elementFlags(s.json)] ]
+  ];
+
+  groups.forEach(([fkey,title,getter])=>{
+    const entries = tally(getter);
+    const block = document.createElement("div");
+    block.className = "facet";
+    block.innerHTML = `<h3>${title}</h3>`;
+    const list = document.createElement("div");
+    list.className = "facet-list";
+    if(!entries.length){
+      list.innerHTML = `<div class="facet-empty">—</div>`;
+    }
+    entries.forEach(([val,n])=>{
+      const on = state.facets[fkey].has(val);
+      const item = document.createElement("div");
+      item.className = "facet-item" + (on?" on":"");
+      item.innerHTML = `
+        <span class="box">${on?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>':''}</span>
+        <span class="lbl" title="${val}">${val}</span>
+        <span class="n">${n}</span>`;
+      item.onclick = ()=>{
+        const set = state.facets[fkey];
+        set.has(val) ? set.delete(val) : set.add(val);
+        renderAll();
+      };
+      list.appendChild(item);
+    });
+    block.appendChild(list);
+    host.appendChild(block);
+  });
+}
+
+function activeFilterCount(){
+  return Object.values(state.facets).reduce((a,s)=>a+s.size,0) + (state.search?1:0);
+}
+function renderActiveBar(){
+  const bar = $("#activebar");
+  const chips = [];
+  if(state.search) chips.push(["Búsqueda", state.search, ()=>{ state.search=""; $("#search").value=""; }]);
+  const titles = {plantilla:"Plantilla",zona:"Zona",grupo:"Grupo",dispositivo:"Dispositivo",marca:"Marca",elemento:"Elemento"};
+  for(const fkey of Object.keys(state.facets)){
+    for(const v of state.facets[fkey]){
+      chips.push([titles[fkey], v, ()=>{ state.facets[fkey].delete(v); }]);
+    }
+  }
+  if(!chips.length){ bar.classList.add("hidden"); bar.innerHTML=""; $("#clearAll").style.display="none"; return; }
+  bar.classList.remove("hidden");
+  $("#clearAll").style.display = "inline";
+  bar.innerHTML = "";
+  chips.forEach(([k,v,rm])=>{
+    const c = document.createElement("span");
+    c.className="chip";
+    c.innerHTML = `<b>${k}:</b> ${v} <button title="Quitar">×</button>`;
+    c.querySelector("button").onclick = ()=>{ rm(); renderAll(); };
+    bar.appendChild(c);
+  });
+}
+
+function groupKey(s){
+  switch(state.groupBy){
+    case "zona": return s.zonas&&s.zonas.length ? s.zonas : ["Sin zona"];
+    case "grupo": return s.grupos&&s.grupos.length ? s.grupos : ["Sin grupo"];
+    case "plantilla": return s.json?.style?.name || "Sin plantilla";
+    case "tag": {
+      const allTags = [...(s.tagDispositivos||[]), ...(s.tagMarca||[])];
+      return allTags.length ? allTags : ["Sin tags"];
+    }
+    default: return "Todas";
+  }
+}
+
+function renderGrid(){
+  const scroll = $("#scroll");
+  const list = visibleScreens();
+
+  $("#count").textContent = screens.length
+    ? `${list.length} de ${screens.length}` : "vacío";
+
+  if(!screens.length){
+    scroll.innerHTML = `
+      <div class="empty-state">
+        <h3>Aún no hay pantallas</h3>
+        <p>Crea una pantalla nueva pegando su JSON, o importa un archivo del repositorio que hayas exportado antes.</p>
+        <button class="btn primary" onclick="openNewScreen()">+ Nueva pantalla</button>
+      </div>`;
+    return;
+  }
+  if(!list.length){
+    scroll.innerHTML = `
+      <div class="empty-state">
+        <h3>Ningún resultado</h3>
+        <p>Ninguna pantalla coincide con los filtros activos. Prueba a quitar alguno.</p>
+        <button class="btn" onclick="clearFilters()">Limpiar filtros</button>
+      </div>`;
+    return;
+  }
+
+  const groups = new Map();
+  if(state.groupBy === "none"){
+    groups.set("Todas", list);
+  }else{
+    list.forEach(s=>{
+      const keys = groupKey(s);
+      (Array.isArray(keys)?keys:[keys]).forEach(k=>{
+        if(!groups.has(k)) groups.set(k,[]);
+        groups.get(k).push(s);
+      });
+    });
+  }
+  const ordered = [...groups.entries()].sort((a,b)=> b[1].length-a[1].length || a[0].localeCompare(b[0]));
+
+  scroll.innerHTML = "";
+  ordered.forEach(([gname, items])=>{
+    const collapsed = state.collapsed.has(gname);
+    const group = document.createElement("div");
+    group.className = "group" + (collapsed?" collapsed":"");
+
+    // Build grid first so filter input can reference it
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    items.forEach(s=> grid.appendChild(buildCard(s)));
+
+    if(state.groupBy !== "none"){
+      const head = document.createElement("div");
+      head.className = "group-head";
+      head.innerHTML = `
+        <span class="caret"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="gname">${escHtml(gname)}</span>
+        <span class="gn">${items.length}</span>
+        <span class="rule"></span>`;
+
+      const filterInput = document.createElement("input");
+      filterInput.type = "text";
+      filterInput.className = "group-filter";
+      filterInput.placeholder = "Filtrar por título…";
+      filterInput.onclick = e => e.stopPropagation();
+      filterInput.oninput = () => {
+        const q = filterInput.value.toLowerCase().trim();
+        grid.querySelectorAll(".card").forEach(card => {
+          const title = (card.querySelector(".card-title")?.textContent || "").toLowerCase();
+          card.style.display = (!q || title.includes(q)) ? "" : "none";
+        });
+      };
+      head.appendChild(filterInput);
+
+      head.onclick = ()=>{
+        collapsed ? state.collapsed.delete(gname) : state.collapsed.add(gname);
+        renderGrid();
+      };
+      group.appendChild(head);
+    }
+
+    group.appendChild(grid);
+    scroll.appendChild(group);
+  });
+}
+
+function buildCard(s){
+  const card = document.createElement("div");
+  card.className = "card" + (s.id===state.selectedId?" selected":"");
+  card.onclick = ()=> openDetail(s.id);
+
+  const thumb = document.createElement("div");
+  thumb.className = "thumb";
+  card.appendChild(thumb);
+
+  const tpl = s.json?.style?.name;
+  if(tpl) mountPreview(thumb, s.json, { mode:"horizontal", fit:"crop" });
+  else thumb.innerHTML = `<div class="empty">Sin plantilla</div>`;
+
+  const flags = [...elementFlags(s.json)];
+  const body = document.createElement("div");
+  body.className = "card-body";
+
+  const zonaBadges = (s.zonas||[]).slice(0,2).map(z=>`<span class="badge zona">${escHtml(z)}</span>`).join("");
+  const grupoBadges = (s.grupos||[]).slice(0,2).map(g=>`<span class="badge grupo">${escHtml(g)}</span>`).join("");
+  const dispBadges = (s.tagDispositivos||[]).slice(0,2).map(t=>`<span class="badge dispositivo">${escHtml(t)}</span>`).join("");
+  const marcaBadges = (s.tagMarca||[]).slice(0,2).map(t=>`<span class="badge marca">${escHtml(t)}</span>`).join("");
+  const flagBadges = flags.slice(0,2).map(f=>`<span class="badge">${escHtml(f)}</span>`).join("");
+
+  body.innerHTML = `
+    <div class="card-title" title="${escAttr(s.nombre||"")}">${escHtml(s.nombre || "Sin nombre")}</div>
+    <div class="card-tpl">${escHtml(tpl || "—")}</div>
+    <div class="badges">${zonaBadges}${grupoBadges}${dispBadges}${marcaBadges}${flagBadges}</div>`;
+  card.appendChild(body);
+  return card;
+}
+
+/* ---------- DETALLE ---------- */
+function openDetail(id){
+  state.selectedId = id;
+  const s = screens.find(x=>x.id===id);
+  if(!s) return;
+  $("#detail").classList.add("open");
+  renderDetail(s);
+  renderGrid();
+}
+function closeDetail(){
+  state.selectedId = null;
+  $("#detail").classList.remove("open");
+  renderGrid();
+}
+
+function renderDetail(s){
+  const el = extractElements(s.json);
+  const hasVertical = !!(s.json?.images?.vertical && String(s.json.images.vertical).trim());
+  const host = $("#detailInner");
+
+  host.innerHTML = `
+    <div class="detail-head">
+      <span class="t">Detalle de pantalla</span>
+      <button class="icon-btn" id="dupBtn" title="Duplicar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      </button>
+      <button class="icon-btn" id="closeBtn" title="Cerrar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="detail-body">
+      <div class="preview-head">
+        <label style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)">Multimedia</label>
+        <span class="seg">
+          <button id="hBtn" class="${state.mode==='horizontal'?'on':''}">Horizontal</button>
+          <button id="vBtn" class="${state.mode==='vertical'?'on':''}" ${hasVertical?'':'disabled title="El JSON no define images.vertical"'}>Vertical</button>
+        </span>
+      </div>
+      <div class="preview-host" id="detailPreview"><div class="empty">…</div></div>
+
+      <div class="field">
+        <label>Nombre</label>
+        <input type="text" id="fNombre" value="${escAttr(s.nombre||'')}">
+      </div>
+      <div class="field">
+        <label>Zonas</label>
+        <div class="tag-box"><div class="tag-edit" id="zonasEdit"></div></div>
+      </div>
+      <div class="field">
+        <label>Grupos</label>
+        <div class="tag-box"><div class="tag-edit" id="gruposEdit"></div></div>
+      </div>
+      <div class="field">
+        <label>Tags — Dispositivos</label>
+        <div class="tag-box"><div class="tag-edit" id="tagDispEdit"></div></div>
+      </div>
+      <div class="field">
+        <label>Tags — Marca</label>
+        <div class="tag-box"><div class="tag-edit" id="tagMarcaEdit"></div></div>
+      </div>
+
+      <div class="field">
+        <label>Elementos en pantalla</label>
+        <div class="elements" id="elements"></div>
+      </div>
+
+      <div class="field">
+        <div class="json-head">
+          <label>JSON de la pantalla</label>
+          <span class="json-status ok" id="jsonStatus">válido</span>
+        </div>
+        <textarea class="json" id="fJson" spellcheck="false"></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn" id="copyJson">Copiar JSON</button>
+          <button class="btn" id="dlJson">Descargar JSON</button>
+        </div>
+      </div>
+    </div>
+    <div class="detail-foot">
+      <button class="btn danger" id="delBtn">Eliminar</button>
+      <button class="btn primary" id="saveBtn">Guardar cambios</button>
+    </div>`;
+
+  // preview
+  const ph = $("#detailPreview");
+  if(s.json?.style?.name || s.json?.images){
+    mountPreview(ph, s.json, { mode:state.mode, fit:"contain" });
+  }else{
+    ph.innerHTML = `<div class="empty">Sin plantilla. Define <code>style.name</code> en el JSON.</div>`;
+  }
+
+  // lightbox on image click
+  ph.addEventListener("click", e=>{
+    const img = e.target.closest("img");
+    if(img && img.src) openLightbox(img.src);
+  });
+
+  // mode toggle
+  $("#hBtn").onclick = ()=>{ state.mode="horizontal"; renderDetail(s); };
+  $("#vBtn").onclick = ()=>{ if(hasVertical){ state.mode="vertical"; renderDetail(s); } };
+
+  // pill editors
+  const zonasSugs  = [...new Set(screens.flatMap(x=>x.zonas||[]))].sort();
+  const gruposSugs = [...new Set(screens.flatMap(x=>x.grupos||[]))].sort();
+  const dispSugs   = [...new Set(screens.flatMap(x=>x.tagDispositivos||[]))].sort();
+  const marcaSugs  = [...new Set(screens.flatMap(x=>x.tagMarca||[]))].sort();
+
+  drawPillEditor("zonasEdit",   s.zonas,            "Añadir zona…",        zonasSugs);
+  drawPillEditor("gruposEdit",  s.grupos,            "Añadir grupo…",       gruposSugs);
+  drawPillEditor("tagDispEdit", s.tagDispositivos,   "Añadir dispositivo…", dispSugs);
+  drawPillEditor("tagMarcaEdit",s.tagMarca,          "Añadir marca…",       marcaSugs);
+
+  // elements
+  renderElements(el);
+
+  // json
+  const ta = $("#fJson");
+  ta.value = JSON.stringify(s.json ?? {}, null, 2);
+  ta.addEventListener("input", ()=>{
+    const r = tryParse(ta.value);
+    const st = $("#jsonStatus");
+    if(r.ok){
+      st.textContent="válido"; st.className="json-status ok"; ta.classList.remove("err");
+      mountPreview($("#detailPreview"), r.data, { mode:state.mode, fit:"contain" });
+      // Re-attach lightbox handler after mountPreview replaces content
+      const ph2 = $("#detailPreview");
+      ph2.addEventListener("click", e=>{
+        const img = e.target.closest("img");
+        if(img && img.src) openLightbox(img.src);
+      }, { once: true });
+      renderElements(extractElements(r.data));
+    }else{
+      st.textContent="JSON con error"; st.className="json-status err"; ta.classList.add("err");
+    }
+  });
+
+  // botones
+  $("#closeBtn").onclick = closeDetail;
+  $("#dupBtn").onclick   = ()=> duplicateScreen(s.id);
+  $("#delBtn").onclick   = ()=> deleteScreen(s.id);
+  $("#saveBtn").onclick  = ()=> saveDetail(s.id);
+  $("#copyJson").onclick = ()=>{ navigator.clipboard.writeText(ta.value); toast("JSON copiado"); };
+  $("#dlJson").onclick   = ()=> download(`${(s.nombre||'pantalla').replace(/\s+/g,'_')}.json`, ta.value);
+}
+
+function drawPillEditor(containerId, arr, placeholder, suggestions){
+  const wrap = document.getElementById(containerId);
+  if(!wrap) return;
+  wrap.innerHTML = "";
+
+  arr.forEach((v, idx)=>{
+    const pill = document.createElement("span");
+    pill.className = "tag-pill";
+    pill.innerHTML = `${escHtml(v)} <button title="Quitar">×</button>`;
+    pill.querySelector("button").onclick = ()=>{
+      arr.splice(idx, 1);
+      drawPillEditor(containerId, arr, placeholder, suggestions);
+    };
+    wrap.appendChild(pill);
+  });
+
+  const dlId = containerId + "_dl";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = arr.length ? "" : placeholder;
+  if(suggestions && suggestions.length){
+    input.setAttribute("list", dlId);
+    let dl = document.getElementById(dlId);
+    if(!dl){ dl = document.createElement("datalist"); dl.id = dlId; }
+    dl.innerHTML = suggestions.map(v=>`<option value="${escAttr(v)}">`).join("");
+    wrap.appendChild(dl);
+  }
+  input.onkeydown = e=>{
+    if(e.key === "Enter" && input.value.trim()){
+      arr.push(input.value.trim()); input.value = "";
+      drawPillEditor(containerId, arr, placeholder, suggestions);
+      document.getElementById(containerId)?.querySelector("input")?.focus();
+    }
+    if(e.key === "Backspace" && !input.value && arr.length){
+      arr.pop();
+      drawPillEditor(containerId, arr, placeholder, suggestions);
+      document.getElementById(containerId)?.querySelector("input")?.focus();
+    }
+  };
+  wrap.appendChild(input);
+}
+
+function renderElements(el){
+  const host = $("#elements");
+  const sections = [];
+
+  if(el.texts.length)
+    sections.push(section("Textos", el.texts.length, el.texts.map(x=>row(x.key, x.value))));
+
+  if(el.images.length)
+    sections.push(section("Imágenes", el.images.length, el.images.map(x=>{
+      const fullUrl = buildImageUrl(state.baseUrl, x.value);
+      const valHtml = fullUrl
+        ? `<a href="${escHtml(fullUrl)}" target="_blank" rel="noopener">${escHtml(x.value)}</a>`
+        : escHtml(String(x.value));
+      return `<div class="el-row"><span class="el-key">${escHtml(x.label)}</span><span class="el-val path">${valHtml}</span></div>`;
+    })));
+
+  if(el.buttons.length)
+    sections.push(section("Botones", el.buttons.length, el.buttons.map(x=>row(x.label, x.action||"—"))));
+
+  if(el.links.length)
+    sections.push(section("Links estilo", el.links.length, el.links.map(x=>{
+      const dest = x.destination;
+      const valHtml = dest && /^https?:\/\//.test(dest)
+        ? `<a href="${escHtml(dest)}" target="_blank" rel="noopener">${escHtml(dest)}</a>`
+        : escHtml(dest||"—");
+      return `<div class="el-row"><span class="el-key">${escHtml(x.title||x.key)}</span><span class="el-val path">${valHtml}</span></div>`;
+    })));
+
+  if(el.urlValues && el.urlValues.length)
+    sections.push(section("Enlaces", el.urlValues.length, el.urlValues.map(x=>{
+      return `<div class="el-row"><span class="el-key">${escHtml(x.path)}</span><span class="el-val path"><a href="${escHtml(x.value)}" target="_blank" rel="noopener">${escHtml(x.value)}</a></span></div>`;
+    })));
+
+  host.innerHTML = sections.length ? sections.join("")
+    : `<div class="el-empty">Esta pantalla no declara elementos todavía.</div>`;
+
+  function section(title, count, rows){
+    return `<div class="el-group"><h4>${escHtml(title)}<span class="gc">${count}</span></h4>${rows.join("")}</div>`;
+  }
+  function row(k, v, path){
+    return `<div class="el-row"><span class="el-key">${escHtml(String(k))}</span><span class="el-val ${path?'path':''}">${escHtml(String(v))}</span></div>`;
+  }
+}
+
+/* =================================================================
+   LIGHTBOX
+   ================================================================= */
+function openLightbox(src){
+  $("#lightboxImg").src = src;
+  $("#lightbox").classList.add("open");
+}
+function closeLightbox(){
+  $("#lightbox").classList.remove("open");
+  $("#lightboxImg").src = "";
+}
+$("#lightbox").addEventListener("click", e=>{
+  if(e.target === $("#lightbox") || e.target.id === "lightboxClose") closeLightbox();
+});
+document.addEventListener("keydown", e=>{
+  if(e.key === "Escape" && $("#lightbox").classList.contains("open")){ closeLightbox(); return; }
+});
+
+/* =================================================================
+   ACCIONES SOBRE DATOS
+   ================================================================= */
+function newId(){ return "scr_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+async function persist(){ await store.saveAll(screens); }
+
+function saveDetail(id){
+  const s = screens.find(x=>x.id===id); if(!s) return;
+  const r = tryParse($("#fJson").value);
+  if(!r.ok){ toast("No se puede guardar: JSON con error"); return; }
+  s.nombre = $("#fNombre").value.trim() || "Sin nombre";
+  // s.zonas, s.grupos, s.tagDispositivos, s.tagMarca are updated in-place by drawPillEditor
+  s.json   = r.data;
+  s.updatedAt = Date.now();
+  persist(); renderAll(); toast("Cambios guardados");
+}
+function duplicateScreen(id){
+  const s = screens.find(x=>x.id===id); if(!s) return;
+  const copy = JSON.parse(JSON.stringify(s));
+  copy.id = newId(); copy.nombre = (s.nombre||"Pantalla")+" (copia)"; copy.updatedAt = Date.now();
+  const idx = screens.indexOf(s); screens.splice(idx+1,0,copy);
+  persist(); openDetail(copy.id); renderAll(); toast("Pantalla duplicada");
+}
+function deleteScreen(id){
+  const s = screens.find(x=>x.id===id); if(!s) return;
+  if(!confirm(`¿Eliminar la pantalla "${s.nombre||'sin nombre'}"? Esta acción no se puede deshacer.`)) return;
+  screens = screens.filter(x=>x.id!==id);
+  if(state.selectedId===id) closeDetail();
+  persist(); renderAll(); toast("Pantalla eliminada");
+}
+function clearFilters(){
+  state.search=""; $("#search").value="";
+  Object.values(state.facets).forEach(s=>s.clear());
+  renderAll();
+}
+
+function openNewScreen(){
+  $("#modalBody").innerHTML = `
+    <h3>Nueva pantalla</h3>
+    <p>Dale un nombre y, si quieres, pega el JSON de la pantalla. Puedes editarlo después.</p>
+    <div class="row">
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px">Nombre</label>
+      <input type="text" id="newName" placeholder="Ej. Bienvenida verano" style="width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px">
+    </div>
+    <div class="row">
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:5px">JSON (opcional)</label>
+      <textarea id="newJson" placeholder='{ "style": { "name": "NRS_1zone_1button_centerDown", "texts": { "text1": "Hola" } }, "images": {} }'></textarea>
+      <div id="newErr" style="color:#c0392b;font-size:12px;margin-top:6px"></div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn primary" id="createBtn">Crear</button>
+    </div>`;
+  $("#overlay").classList.add("open");
+  $("#newName").focus();
+  $("#createBtn").onclick = ()=>{
+    const name = $("#newName").value.trim() || "Nueva pantalla";
+    let json = { style:{ name:"", texts:{}, images:{}, actions:[] }, images:{} };
+    const raw = $("#newJson").value.trim();
+    if(raw){
+      const r = tryParse(raw);
+      if(!r.ok){ $("#newErr").textContent = "JSON con error: " + r.error; return; }
+      json = r.data;
+    }
+    const s = { id:newId(), nombre:name, zonas:[], grupos:[], tagDispositivos:[], tagMarca:[], json, updatedAt:Date.now() };
+    screens.unshift(s);
+    persist(); closeModal(); openDetail(s.id); renderAll();
+  };
+}
+function closeModal(){ $("#overlay").classList.remove("open"); }
+
+function exportRepo(){
+  download("repositorio-nrs.json", JSON.stringify(screens, null, 2));
+  toast(`Exportadas ${screens.length} pantallas`);
+}
+function importRepo(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const r = tryParse(reader.result);
+    if(!r.ok){ toast("El archivo no es JSON válido"); return; }
+    let incoming = [];
+    if(Array.isArray(r.data)){
+      incoming = r.data.map(x => x && x.json
+        ? normalizeScreen(x)
+        : { id:newId(), nombre:"Importada", zonas:[], grupos:[], tagDispositivos:[], tagMarca:[], json:x, updatedAt:Date.now() });
+    }else if(r.data.json){
+      incoming = [ normalizeScreen(r.data) ];
+    }else{
+      incoming = [ { id:newId(), nombre:"Importada", zonas:[], grupos:[], tagDispositivos:[], tagMarca:[], json:r.data, updatedAt:Date.now() } ];
+    }
+    const byId = new Map(screens.map(s=>[s.id,s]));
+    incoming.forEach(s=> byId.set(s.id, s));
+    screens = [...byId.values()];
+    persist(); renderAll(); toast(`Importadas ${incoming.length} pantallas`);
+  };
+  reader.readAsText(file);
+}
+function normalizeScreen(x){
+  return {
+    id: x.id || newId(),
+    nombre: x.nombre || "Sin nombre",
+    zonas: Array.isArray(x.zonas) ? x.zonas : (x.zona ? [x.zona] : []),
+    grupos: Array.isArray(x.grupos) ? x.grupos : (x.grupo ? [x.grupo] : []),
+    tagDispositivos: Array.isArray(x.tagDispositivos) ? x.tagDispositivos : (Array.isArray(x.tags) ? x.tags : []),
+    tagMarca: Array.isArray(x.tagMarca) ? x.tagMarca : [],
+    json: x.json || {},
+    updatedAt: x.updatedAt || Date.now()
+  };
+}
+
+function openConfig(){
+  $("#modalBody").innerHTML = `
+    <h3>Base URL de imágenes</h3>
+    <p>Prefijo que se antepone a las rutas de imagen del JSON para previsualizar (logos, fondos, QR…).</p>
+    <input type="text" id="cfgUrl" value="${escAttr(state.baseUrl)}" style="width:100%;padding:9px 11px;border:1px solid var(--line-strong);border-radius:8px;font-family:var(--mono);font-size:12px">
+    <div class="actions">
+      <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn primary" id="saveCfg">Guardar</button>
+    </div>`;
+  $("#overlay").classList.add("open");
+  $("#saveCfg").onclick = ()=>{
+    state.baseUrl = $("#cfgUrl").value.trim();
+    localStorage.setItem(LS_BASE, state.baseUrl);
+    closeModal(); renderAll();
+    if(state.selectedId) openDetail(state.selectedId);
+    toast("Base URL actualizada");
+  };
+}
+
+/* =================================================================
+   HELPERS
+   ================================================================= */
+function tryParse(str){ try{ return {ok:true, data:JSON.parse(str)}; }catch(e){ return {ok:false, error:e.message}; } }
+function escAttr(s){ return String(s).replace(/"/g,"&quot;"); }
+function escHtml(s){ return String(s).replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function download(filename, text){
+  const blob = new Blob([text], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+let toastTimer;
+function toast(msg){
+  const t = $("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* =================================================================
+   RENDER ALL
+   ================================================================= */
+function renderAll(){
+  renderFacets();
+  renderActiveBar();
+  renderGrid();
+}
+
+/* =================================================================
+   EVENTOS GLOBALES
+   ================================================================= */
+$("#search").addEventListener("input", e=>{ state.search = e.target.value; renderActiveBar(); renderGrid(); });
+$("#groupBy").addEventListener("change", e=>{ state.groupBy = e.target.value; state.collapsed.clear(); renderGrid(); });
+$("#addBtn").onclick    = openNewScreen;
+$("#exportBtn").onclick = exportRepo;
+$("#importBtn").onclick = ()=> $("#fileInput").click();
+$("#cfgBtn").onclick    = openConfig;
+$("#clearAll").onclick  = clearFilters;
+$("#fileInput").addEventListener("change", e=>{ if(e.target.files[0]) importRepo(e.target.files[0]); e.target.value=""; });
+$("#overlay").addEventListener("click", e=>{ if(e.target.id==="overlay") closeModal(); });
+
+document.addEventListener("keydown", e=>{
+  if(e.key==="/" && document.activeElement.tagName!=="INPUT" && document.activeElement.tagName!=="TEXTAREA"){
+    e.preventDefault(); $("#search").focus();
+  }
+  if(e.key==="Escape"){
+    if($("#lightbox").classList.contains("open")){ closeLightbox(); return; }
+    if($("#overlay").classList.contains("open")) closeModal();
+    else if($("#detail").classList.contains("open")) closeDetail();
+  }
+});
+window.addEventListener("resize", ()=>{ renderGrid(); });
+
+/* =================================================================
+   SEMILLA
+   ================================================================= */
+function seed(){
+  return [
+    {
+      id:newId(), nombre:"Bienvenida — 2 opciones",
+      zonas:["Onboarding"], grupos:["Campaña verano"],
+      tagDispositivos:["SmartTV","Móvil"], tagMarca:["Orange"],
+      updatedAt:Date.now(),
+      json:{
+        images:{ horizontal:"backgrounds/welcome_h.jpg" },
+        style:{
+          name:"NRS_3zones_2buttons",
+          texts:{ text1:"Bienvenido a Orange TV", text2:"Elige cómo empezar",
+                  textLeft1:"Plan Básico", textLeft2:"Lo esencial",
+                  textRight1:"Plan Premium", textRight2:"Todo incluido" },
+          images:{ logo:"logos/orange.png" },
+          actions:[ {buttonLabel:"Empezar gratis"}, {buttonLabel:"Ver Premium"} ]
+        }
+      }
+    },
+    {
+      id:newId(), nombre:"Confirmación con QR",
+      zonas:["Activación"], grupos:["Campaña verano"],
+      tagDispositivos:["SmartTV"], tagMarca:["Orange"],
+      updatedAt:Date.now(),
+      json:{
+        images:{ horizontal:"backgrounds/dark.jpg" },
+        style:{
+          name:"QR_2steps_1zone_1button",
+          texts:{ text1_step1:"Escanea para vincular", text2_step1:"Usa la cámara del móvil",
+                  text1_step2:"¡Listo!", text2_step2_ok:"Tu dispositivo está vinculado" },
+          images:{ QR:"qr/sample.png" },
+          actions:[ {buttonLabel:"Continuar"} ]
+        }
+      }
+    },
+    {
+      id:newId(), nombre:"Aviso de mantenimiento",
+      zonas:["Sistema"], grupos:["Avisos"],
+      tagDispositivos:[], tagMarca:[],
+      updatedAt:Date.now(),
+      json:{
+        images:{ horizontal:"backgrounds/plain.jpg" },
+        style:{
+          name:"NRS_1zone_1button_centerDown",
+          texts:{ text1:"Mantenimiento programado", text2:"El servicio no estará disponible esta noche de 02:00 a 04:00.",
+                  text3:"Gracias por tu paciencia." },
+          images:{ logo:"logos/orange.png" },
+          actions:[ {buttonLabel:"Entendido"} ]
+        }
+      }
+    }
+  ];
+}
+
+/* =================================================================
+   INIT
+   ================================================================= */
+async function init(){
+  const loaded = await store.loadAll();
+  if(loaded && Array.isArray(loaded) && loaded.length){
+    screens = loaded.map(normalizeScreen);
+  }else{
+    screens = seed();
+    await persist();
+  }
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>
