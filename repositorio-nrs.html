@@ -122,22 +122,31 @@
   .scroll{flex:1;overflow-y:auto;padding:18px 18px 60px}
   .group{margin-bottom:26px}
   .group-head{
-    display:flex;align-items:center;gap:8px;margin:0 0 12px;cursor:pointer;user-select:none;
+    display:flex;align-items:center;gap:8px;margin:0 0 0;cursor:pointer;user-select:none;
   }
   .group-head .caret{transition:transform .15s ease;color:var(--faint)}
   .group.collapsed .caret{transform:rotate(-90deg)}
   .group-head .gname{font-size:13px;font-weight:650}
   .group-head .gn{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
   .group-head .rule{flex:1;height:1px;background:var(--line)}
-  .group.collapsed .grid{display:none}
 
-  /* group title filter */
+  /* group content: filter + grid, hidden when collapsed */
+  .group-content{margin-top:10px}
+  .group.collapsed .group-content{display:none}
+
+  /* filter by title inside a group */
+  .group-filter-wrap{
+    position:relative;margin-bottom:10px;
+  }
+  .group-filter-wrap svg{
+    position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none;
+  }
   .group-filter{
-    border:1px solid var(--line-strong);border-radius:6px;padding:3px 8px;
-    background:var(--surface-2);outline:none;font-size:12px;width:150px;
-    cursor:text;user-select:text;
+    width:100%;padding:6px 10px 6px 30px;border:1px solid var(--line);border-radius:7px;
+    background:var(--surface);outline:none;font-size:12px;color:var(--ink);
   }
   .group-filter:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);background:#fff}
+  .group-filter::placeholder{color:var(--faint)}
 
   .grid{
     display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;
@@ -195,8 +204,8 @@
   .seg button{padding:5px 11px;background:#fff;border:none;color:var(--muted);font-size:12px}
   .seg button.on{background:var(--ink);color:#fff}
   .seg button:disabled{opacity:.4;cursor:not-allowed}
-  .preview-host{background:#000;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
-  .preview-host .empty{display:grid;place-items:center;min-height:140px;color:#666;font-size:12px;text-align:center;padding:20px}
+  .preview-host{background:#000;border-radius:8px;overflow:hidden;border:1px solid var(--line);cursor:zoom-in}
+  .preview-host .empty{display:grid;place-items:center;min-height:140px;color:#666;font-size:12px;text-align:center;padding:20px;cursor:default}
   .preview-host img{cursor:zoom-in}
 
   .field{margin-top:16px}
@@ -292,12 +301,12 @@
 
   /* lightbox */
   .lightbox{
-    position:fixed;inset:0;background:rgba(10,10,15,.88);
-    display:none;place-items:center;z-index:200;cursor:zoom-out;
+    position:fixed;inset:0;background:rgba(10,10,15,.9);
+    display:none;place-items:center;z-index:200;
   }
   .lightbox.open{display:grid}
-  .lightbox-inner{position:relative;display:flex;align-items:center;justify-content:center}
-  .lightbox-inner img{max-width:90vw;max-height:88vh;border-radius:8px;box-shadow:0 4px 40px rgba(0,0,0,.6);display:block;cursor:default}
+  .lightbox-inner{position:relative;display:flex;align-items:center;justify-content:center;max-width:92vw;max-height:92vh}
+  .lightbox-inner img{max-width:90vw;max-height:88vh;border-radius:8px;box-shadow:0 4px 40px rgba(0,0,0,.6);display:block}
   .lightbox-close{
     position:absolute;top:-16px;right:-16px;
     background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;
@@ -305,6 +314,7 @@
     display:flex;align-items:center;justify-content:center;line-height:1;
   }
   .lightbox-close:hover{background:rgba(255,255,255,.32)}
+  .lightbox-backdrop{position:absolute;inset:0;cursor:zoom-out}
 
   @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
@@ -375,6 +385,7 @@
 
 <!-- ===== LIGHTBOX ===== -->
 <div class="lightbox" id="lightbox">
+  <div class="lightbox-backdrop" id="lightboxBackdrop"></div>
   <div class="lightbox-inner">
     <button class="lightbox-close" id="lightboxClose">×</button>
     <img id="lightboxImg" src="" alt="">
@@ -415,12 +426,13 @@ let screens = [];
 const state = {
   search: "",
   facets: {
-    plantilla: new Set(),
-    zona: new Set(),
-    grupo: new Set(),
-    dispositivo: new Set(),
-    marca: new Set(),
-    elemento: new Set()
+    plantilla:  new Set(),
+    zona:       new Set(),
+    grupo:      new Set(),
+    tag:        new Set(),
+    dispositivo:new Set(),
+    marca:      new Set(),
+    elemento:   new Set()
   },
   groupBy: "zona",
   baseUrl: localStorage.getItem(LS_BASE) || "https://orangetv.orange.es/pc/api/rtv/v1/images/",
@@ -622,8 +634,6 @@ function mountPreview(container, data, opts){
   const DESIGN_W = mode === "vertical" ? 600 : 900;
 
   container.innerHTML = "";
-  const styleName = data && data.style && data.style.name;
-
   const wrapper = document.createElement("div");
   wrapper.className = "preview-wrapper";
   wrapper.style.width = DESIGN_W + "px";
@@ -634,7 +644,10 @@ function mountPreview(container, data, opts){
   const imgs = (data && data.images) || {};
   const bgPath = (mode==="vertical" && imgs.vertical && imgs.vertical.trim())
     ? imgs.vertical : imgs.horizontal;
-  preview.style.backgroundImage = bgPath ? `url('${buildImageUrl(opts.baseUrl||state.baseUrl, bgPath)}')` : "none";
+  const bgUrl = bgPath ? buildImageUrl(opts.baseUrl||state.baseUrl, bgPath) : "";
+  preview.style.backgroundImage = bgUrl ? `url('${bgUrl}')` : "none";
+  // Store bg URL for lightbox
+  preview.dataset.bgUrl = bgUrl;
 
   preview.innerHTML = renderInner(data || {}, { baseUrl: opts.baseUrl || state.baseUrl, mode });
   wrapper.appendChild(preview);
@@ -661,10 +674,11 @@ const IMG_LABELS = {
   horizontal:"Fondo horizontal", vertical:"Fondo vertical"
 };
 
+/* Recorre recursivamente el objeto y recoge todos los valores string que sean URLs http/https */
 function collectUrls(obj, result, path){
   result = result || []; path = path || "";
   if(typeof obj === "string"){
-    if(/^https?:\/\//.test(obj)) result.push({ path, value: obj });
+    if(/^https?:\/\//i.test(obj.trim())) result.push({ path, value: obj.trim() });
   } else if(Array.isArray(obj)){
     obj.forEach((v,i) => collectUrls(v, result, path ? path+"["+i+"]" : "["+i+"]"));
   } else if(obj && typeof obj === "object"){
@@ -676,28 +690,46 @@ function collectUrls(obj, result, path){
 function extractElements(data){
   data = data || {};
   const style = data.style || {};
-  const out = { template: style.name || "", texts:[], images:[], buttons:[], links:[], urlValues:[] };
+  const out = { template: style.name || "", texts:[], images:[], buttons:[], urlValues:[] };
 
+  // Textos
   const tx = style.texts || {};
   for(const k of Object.keys(tx)){
     const v = tx[k];
     if(v!=null && String(v).trim()!=="") out.texts.push({ key:k, value:String(v) });
   }
+
+  // Imágenes (data.images + style.images)
   const imgSrc = Object.assign({}, data.images || {}, style.images || {});
   for(const k of Object.keys(imgSrc)){
     const v = imgSrc[k];
     if(v!=null && String(v).trim()!=="") out.images.push({ key:k, label:IMG_LABELS[k]||k, value:String(v) });
   }
+
+  // Botones
   (style.actions||[]).forEach((act,idx)=>{
     out.buttons.push({ key:`acción ${idx+1}`, label:act.buttonLabel||"(sin texto)", action:act.action||act.type||"" });
   });
-  (style.links||[]).forEach(l=>{
-    out.links.push({ key:l.key||"", title:l.title||"", destination:l.destination||"" });
-  });
 
-  // Collect all http/https values from JSON, excluding already-shown link destinations
-  const knownDests = new Set(out.links.map(l=>l.destination));
-  out.urlValues = collectUrls(data).filter(u => !knownDests.has(u.value));
+  // ---- ENLACES: todas las URLs http/https del JSON ----
+  // 1. style.links con título legible
+  const styleLinksDestinations = new Set();
+  (style.links||[]).forEach(l=>{
+    const dest = l.destination || "";
+    if(dest && /^https?:\/\//i.test(dest.trim())){
+      styleLinksDestinations.add(dest.trim());
+      out.urlValues.push({
+        path: l.title || l.key || "link",
+        value: dest.trim()
+      });
+    }
+  });
+  // 2. Resto de URLs en el JSON (que no sean ya de style.links)
+  collectUrls(data).forEach(u=>{
+    if(!styleLinksDestinations.has(u.value)){
+      out.urlValues.push(u);
+    }
+  });
 
   return out;
 }
@@ -711,9 +743,9 @@ function elementFlags(data){
     else if(im.key==="vertical") flags.add("Fondo vertical");
     else flags.add("Imágenes");
   });
-  if(el.buttons.length) flags.add("Botones");
-  if(el.links.length)   flags.add("Enlaces");
-  if(el.texts.length)   flags.add("Textos");
+  if(el.buttons.length)   flags.add("Botones");
+  if(el.urlValues.length) flags.add("Enlaces");
+  if(el.texts.length)     flags.add("Textos");
   return flags;
 }
 
@@ -723,13 +755,14 @@ function searchBlob(s){
     s.nombre,
     (s.zonas||[]).join(" "),
     (s.grupos||[]).join(" "),
+    (s.tags||[]).join(" "),
     (s.tagDispositivos||[]).join(" "),
     (s.tagMarca||[]).join(" "),
     el.template,
     el.texts.map(x=>x.key+" "+x.value).join(" "),
     el.images.map(x=>x.key+" "+x.value).join(" "),
     el.buttons.map(x=>x.label+" "+x.action).join(" "),
-    el.links.map(x=>x.title+" "+x.destination).join(" ")
+    el.urlValues.map(x=>x.path+" "+x.value).join(" ")
   ].join(" ").toLowerCase();
 }
 
@@ -743,6 +776,7 @@ function passesFilters(s){
   if(f.zona.size && !zones.some(z=>f.zona.has(z))) return false;
   const grupos = s.grupos && s.grupos.length ? s.grupos : ["—"];
   if(f.grupo.size && !grupos.some(g=>f.grupo.has(g))) return false;
+  if(f.tag.size && !(s.tags||[]).some(t=>f.tag.has(t))) return false;
   if(f.dispositivo.size && !(s.tagDispositivos||[]).some(t=>f.dispositivo.has(t))) return false;
   if(f.marca.size && !(s.tagMarca||[]).some(t=>f.marca.has(t))) return false;
   if(f.elemento.size){
@@ -776,12 +810,13 @@ function renderFacets(){
   host.innerHTML = "";
 
   const groups = [
-    ["plantilla","Plantilla", s=> s.json?.style?.name || "—"],
-    ["zona","Zona", s=> s.zonas&&s.zonas.length ? s.zonas : ["—"]],
-    ["grupo","Grupo", s=> s.grupos&&s.grupos.length ? s.grupos : ["—"]],
+    ["plantilla",  "Plantilla",    s=> s.json?.style?.name || "—"],
+    ["zona",       "Zona",         s=> s.zonas&&s.zonas.length ? s.zonas : ["—"]],
+    ["grupo",      "Grupo",        s=> s.grupos&&s.grupos.length ? s.grupos : ["—"]],
+    ["tag",        "Tags",         s=> s.tags&&s.tags.length ? s.tags : ["—"]],
     ["dispositivo","Dispositivos", s=> s.tagDispositivos&&s.tagDispositivos.length ? s.tagDispositivos : ["—"]],
-    ["marca","Marca", s=> s.tagMarca&&s.tagMarca.length ? s.tagMarca : ["—"]],
-    ["elemento","Elementos", s=> [...elementFlags(s.json)] ]
+    ["marca",      "Marca",        s=> s.tagMarca&&s.tagMarca.length ? s.tagMarca : ["—"]],
+    ["elemento",   "Elementos",    s=> [...elementFlags(s.json)] ]
   ];
 
   groups.forEach(([fkey,title,getter])=>{
@@ -814,14 +849,11 @@ function renderFacets(){
   });
 }
 
-function activeFilterCount(){
-  return Object.values(state.facets).reduce((a,s)=>a+s.size,0) + (state.search?1:0);
-}
 function renderActiveBar(){
   const bar = $("#activebar");
   const chips = [];
   if(state.search) chips.push(["Búsqueda", state.search, ()=>{ state.search=""; $("#search").value=""; }]);
-  const titles = {plantilla:"Plantilla",zona:"Zona",grupo:"Grupo",dispositivo:"Dispositivo",marca:"Marca",elemento:"Elemento"};
+  const titles = {plantilla:"Plantilla",zona:"Zona",grupo:"Grupo",tag:"Tag",dispositivo:"Dispositivo",marca:"Marca",elemento:"Elemento"};
   for(const fkey of Object.keys(state.facets)){
     for(const v of state.facets[fkey]){
       chips.push([titles[fkey], v, ()=>{ state.facets[fkey].delete(v); }]);
@@ -846,7 +878,7 @@ function groupKey(s){
     case "grupo": return s.grupos&&s.grupos.length ? s.grupos : ["Sin grupo"];
     case "plantilla": return s.json?.style?.name || "Sin plantilla";
     case "tag": {
-      const allTags = [...(s.tagDispositivos||[]), ...(s.tagMarca||[])];
+      const allTags = [...(s.tags||[]), ...(s.tagDispositivos||[]), ...(s.tagMarca||[])];
       return allTags.length ? allTags : ["Sin tags"];
     }
     default: return "Todas";
@@ -899,11 +931,6 @@ function renderGrid(){
     const group = document.createElement("div");
     group.className = "group" + (collapsed?" collapsed":"");
 
-    // Build grid first so filter input can reference it
-    const grid = document.createElement("div");
-    grid.className = "grid";
-    items.forEach(s=> grid.appendChild(buildCard(s)));
-
     if(state.groupBy !== "none"){
       const head = document.createElement("div");
       head.className = "group-head";
@@ -912,21 +939,6 @@ function renderGrid(){
         <span class="gname">${escHtml(gname)}</span>
         <span class="gn">${items.length}</span>
         <span class="rule"></span>`;
-
-      const filterInput = document.createElement("input");
-      filterInput.type = "text";
-      filterInput.className = "group-filter";
-      filterInput.placeholder = "Filtrar por título…";
-      filterInput.onclick = e => e.stopPropagation();
-      filterInput.oninput = () => {
-        const q = filterInput.value.toLowerCase().trim();
-        grid.querySelectorAll(".card").forEach(card => {
-          const title = (card.querySelector(".card-title")?.textContent || "").toLowerCase();
-          card.style.display = (!q || title.includes(q)) ? "" : "none";
-        });
-      };
-      head.appendChild(filterInput);
-
       head.onclick = ()=>{
         collapsed ? state.collapsed.delete(gname) : state.collapsed.add(gname);
         renderGrid();
@@ -934,7 +946,42 @@ function renderGrid(){
       group.appendChild(head);
     }
 
-    group.appendChild(grid);
+    // group-content holds filter + grid, hidden when collapsed
+    const groupContent = document.createElement("div");
+    groupContent.className = "group-content";
+
+    // filter by title — visible below the group header
+    if(state.groupBy !== "none"){
+      const filterWrap = document.createElement("div");
+      filterWrap.className = "group-filter-wrap";
+      filterWrap.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>`;
+      const filterInput = document.createElement("input");
+      filterInput.type = "text";
+      filterInput.className = "group-filter";
+      filterInput.placeholder = `Filtrar por título en "${gname}"…`;
+
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      items.forEach(s=> grid.appendChild(buildCard(s)));
+
+      filterInput.oninput = () => {
+        const q = filterInput.value.toLowerCase().trim();
+        grid.querySelectorAll(".card").forEach(card => {
+          const title = (card.querySelector(".card-title")?.textContent || "").toLowerCase();
+          card.style.display = (!q || title.includes(q)) ? "" : "none";
+        });
+      };
+      filterWrap.appendChild(filterInput);
+      groupContent.appendChild(filterWrap);
+      groupContent.appendChild(grid);
+    } else {
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      items.forEach(s=> grid.appendChild(buildCard(s)));
+      groupContent.appendChild(grid);
+    }
+
+    group.appendChild(groupContent);
     scroll.appendChild(group);
   });
 }
@@ -956,16 +1003,17 @@ function buildCard(s){
   const body = document.createElement("div");
   body.className = "card-body";
 
-  const zonaBadges = (s.zonas||[]).slice(0,2).map(z=>`<span class="badge zona">${escHtml(z)}</span>`).join("");
+  const zonaBadges  = (s.zonas||[]).slice(0,2).map(z=>`<span class="badge zona">${escHtml(z)}</span>`).join("");
   const grupoBadges = (s.grupos||[]).slice(0,2).map(g=>`<span class="badge grupo">${escHtml(g)}</span>`).join("");
-  const dispBadges = (s.tagDispositivos||[]).slice(0,2).map(t=>`<span class="badge dispositivo">${escHtml(t)}</span>`).join("");
-  const marcaBadges = (s.tagMarca||[]).slice(0,2).map(t=>`<span class="badge marca">${escHtml(t)}</span>`).join("");
-  const flagBadges = flags.slice(0,2).map(f=>`<span class="badge">${escHtml(f)}</span>`).join("");
+  const tagBadges   = (s.tags||[]).slice(0,2).map(t=>`<span class="badge tag">${escHtml(t)}</span>`).join("");
+  const dispBadges  = (s.tagDispositivos||[]).slice(0,1).map(t=>`<span class="badge dispositivo">${escHtml(t)}</span>`).join("");
+  const marcaBadges = (s.tagMarca||[]).slice(0,1).map(t=>`<span class="badge marca">${escHtml(t)}</span>`).join("");
+  const flagBadges  = flags.slice(0,2).map(f=>`<span class="badge">${escHtml(f)}</span>`).join("");
 
   body.innerHTML = `
     <div class="card-title" title="${escAttr(s.nombre||"")}">${escHtml(s.nombre || "Sin nombre")}</div>
     <div class="card-tpl">${escHtml(tpl || "—")}</div>
-    <div class="badges">${zonaBadges}${grupoBadges}${dispBadges}${marcaBadges}${flagBadges}</div>`;
+    <div class="badges">${zonaBadges}${grupoBadges}${tagBadges}${dispBadges}${marcaBadges}${flagBadges}</div>`;
   card.appendChild(body);
   return card;
 }
@@ -1008,7 +1056,7 @@ function renderDetail(s){
           <button id="vBtn" class="${state.mode==='vertical'?'on':''}" ${hasVertical?'':'disabled title="El JSON no define images.vertical"'}>Vertical</button>
         </span>
       </div>
-      <div class="preview-host" id="detailPreview"><div class="empty">…</div></div>
+      <div class="preview-host" id="detailPreview"><div class="empty" style="cursor:default">…</div></div>
 
       <div class="field">
         <label>Nombre</label>
@@ -1021,6 +1069,10 @@ function renderDetail(s){
       <div class="field">
         <label>Grupos</label>
         <div class="tag-box"><div class="tag-edit" id="gruposEdit"></div></div>
+      </div>
+      <div class="field">
+        <label>Tags</label>
+        <div class="tag-box"><div class="tag-edit" id="tagGenEdit"></div></div>
       </div>
       <div class="field">
         <label>Tags — Dispositivos</label>
@@ -1058,14 +1110,12 @@ function renderDetail(s){
   if(s.json?.style?.name || s.json?.images){
     mountPreview(ph, s.json, { mode:state.mode, fit:"contain" });
   }else{
-    ph.innerHTML = `<div class="empty">Sin plantilla. Define <code>style.name</code> en el JSON.</div>`;
+    ph.innerHTML = `<div class="empty" style="cursor:default">Sin plantilla. Define <code>style.name</code> en el JSON.</div>`;
   }
 
-  // lightbox on image click
-  ph.addEventListener("click", e=>{
-    const img = e.target.closest("img");
-    if(img && img.src) openLightbox(img.src);
-  });
+  // lightbox: click on any <img> → open with img.src
+  //           click on preview background → open bg image if present
+  attachLightboxToPreview(ph);
 
   // mode toggle
   $("#hBtn").onclick = ()=>{ state.mode="horizontal"; renderDetail(s); };
@@ -1074,13 +1124,15 @@ function renderDetail(s){
   // pill editors
   const zonasSugs  = [...new Set(screens.flatMap(x=>x.zonas||[]))].sort();
   const gruposSugs = [...new Set(screens.flatMap(x=>x.grupos||[]))].sort();
+  const tagSugs    = [...new Set(screens.flatMap(x=>x.tags||[]))].sort();
   const dispSugs   = [...new Set(screens.flatMap(x=>x.tagDispositivos||[]))].sort();
   const marcaSugs  = [...new Set(screens.flatMap(x=>x.tagMarca||[]))].sort();
 
-  drawPillEditor("zonasEdit",   s.zonas,            "Añadir zona…",        zonasSugs);
-  drawPillEditor("gruposEdit",  s.grupos,            "Añadir grupo…",       gruposSugs);
-  drawPillEditor("tagDispEdit", s.tagDispositivos,   "Añadir dispositivo…", dispSugs);
-  drawPillEditor("tagMarcaEdit",s.tagMarca,          "Añadir marca…",       marcaSugs);
+  drawPillEditor("zonasEdit",   s.zonas,          "Añadir zona…",        zonasSugs);
+  drawPillEditor("gruposEdit",  s.grupos,          "Añadir grupo…",       gruposSugs);
+  drawPillEditor("tagGenEdit",  s.tags,            "Añadir tag…",         tagSugs);
+  drawPillEditor("tagDispEdit", s.tagDispositivos, "Añadir dispositivo…", dispSugs);
+  drawPillEditor("tagMarcaEdit",s.tagMarca,        "Añadir marca…",       marcaSugs);
 
   // elements
   renderElements(el);
@@ -1093,13 +1145,8 @@ function renderDetail(s){
     const st = $("#jsonStatus");
     if(r.ok){
       st.textContent="válido"; st.className="json-status ok"; ta.classList.remove("err");
-      mountPreview($("#detailPreview"), r.data, { mode:state.mode, fit:"contain" });
-      // Re-attach lightbox handler after mountPreview replaces content
-      const ph2 = $("#detailPreview");
-      ph2.addEventListener("click", e=>{
-        const img = e.target.closest("img");
-        if(img && img.src) openLightbox(img.src);
-      }, { once: true });
+      mountPreview(ph, r.data, { mode:state.mode, fit:"contain" });
+      attachLightboxToPreview(ph);
       renderElements(extractElements(r.data));
     }else{
       st.textContent="JSON con error"; st.className="json-status err"; ta.classList.add("err");
@@ -1113,6 +1160,25 @@ function renderDetail(s){
   $("#saveBtn").onclick  = ()=> saveDetail(s.id);
   $("#copyJson").onclick = ()=>{ navigator.clipboard.writeText(ta.value); toast("JSON copiado"); };
   $("#dlJson").onclick   = ()=> download(`${(s.nombre||'pantalla').replace(/\s+/g,'_')}.json`, ta.value);
+}
+
+/* Adjunta delegación de clics para el lightbox al contenedor de preview */
+function attachLightboxToPreview(container){
+  // Remove previous listener by replacing with a clone (simple approach for delegated events)
+  const handler = e => {
+    const img = e.target.closest("img");
+    if(img && img.src && !img.src.startsWith("data:")){
+      openLightbox(img.src); return;
+    }
+    // Click on the preview background
+    const previewEl = e.target.closest(".preview");
+    if(previewEl && previewEl.dataset.bgUrl){
+      openLightbox(previewEl.dataset.bgUrl);
+    }
+  };
+  container.removeEventListener("click", container._lbHandler);
+  container._lbHandler = handler;
+  container.addEventListener("click", handler);
 }
 
 function drawPillEditor(containerId, arr, placeholder, suggestions){
@@ -1176,15 +1242,7 @@ function renderElements(el){
   if(el.buttons.length)
     sections.push(section("Botones", el.buttons.length, el.buttons.map(x=>row(x.label, x.action||"—"))));
 
-  if(el.links.length)
-    sections.push(section("Links estilo", el.links.length, el.links.map(x=>{
-      const dest = x.destination;
-      const valHtml = dest && /^https?:\/\//.test(dest)
-        ? `<a href="${escHtml(dest)}" target="_blank" rel="noopener">${escHtml(dest)}</a>`
-        : escHtml(dest||"—");
-      return `<div class="el-row"><span class="el-key">${escHtml(x.title||x.key)}</span><span class="el-val path">${valHtml}</span></div>`;
-    })));
-
+  // ENLACES: todas las URLs http/https del JSON (incluye style.links + otras)
   if(el.urlValues && el.urlValues.length)
     sections.push(section("Enlaces", el.urlValues.length, el.urlValues.map(x=>{
       return `<div class="el-row"><span class="el-key">${escHtml(x.path)}</span><span class="el-val path"><a href="${escHtml(x.value)}" target="_blank" rel="noopener">${escHtml(x.value)}</a></span></div>`;
@@ -1196,8 +1254,8 @@ function renderElements(el){
   function section(title, count, rows){
     return `<div class="el-group"><h4>${escHtml(title)}<span class="gc">${count}</span></h4>${rows.join("")}</div>`;
   }
-  function row(k, v, path){
-    return `<div class="el-row"><span class="el-key">${escHtml(String(k))}</span><span class="el-val ${path?'path':''}">${escHtml(String(v))}</span></div>`;
+  function row(k, v){
+    return `<div class="el-row"><span class="el-key">${escHtml(String(k))}</span><span class="el-val">${escHtml(String(v))}</span></div>`;
   }
 }
 
@@ -1205,25 +1263,21 @@ function renderElements(el){
    LIGHTBOX
    ================================================================= */
 function openLightbox(src){
+  if(!src) return;
   $("#lightboxImg").src = src;
   $("#lightbox").classList.add("open");
 }
 function closeLightbox(){
   $("#lightbox").classList.remove("open");
-  $("#lightboxImg").src = "";
+  setTimeout(()=>{ $("#lightboxImg").src = ""; }, 200);
 }
-$("#lightbox").addEventListener("click", e=>{
-  if(e.target === $("#lightbox") || e.target.id === "lightboxClose") closeLightbox();
-});
-document.addEventListener("keydown", e=>{
-  if(e.key === "Escape" && $("#lightbox").classList.contains("open")){ closeLightbox(); return; }
-});
+$("#lightboxBackdrop").addEventListener("click", closeLightbox);
+$("#lightboxClose").addEventListener("click", closeLightbox);
 
 /* =================================================================
    ACCIONES SOBRE DATOS
    ================================================================= */
 function newId(){ return "scr_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
-
 async function persist(){ await store.saveAll(screens); }
 
 function saveDetail(id){
@@ -1231,7 +1285,7 @@ function saveDetail(id){
   const r = tryParse($("#fJson").value);
   if(!r.ok){ toast("No se puede guardar: JSON con error"); return; }
   s.nombre = $("#fNombre").value.trim() || "Sin nombre";
-  // s.zonas, s.grupos, s.tagDispositivos, s.tagMarca are updated in-place by drawPillEditor
+  // zonas, grupos, tags, tagDispositivos, tagMarca are updated in-place by drawPillEditor
   s.json   = r.data;
   s.updatedAt = Date.now();
   persist(); renderAll(); toast("Cambios guardados");
@@ -1284,7 +1338,7 @@ function openNewScreen(){
       if(!r.ok){ $("#newErr").textContent = "JSON con error: " + r.error; return; }
       json = r.data;
     }
-    const s = { id:newId(), nombre:name, zonas:[], grupos:[], tagDispositivos:[], tagMarca:[], json, updatedAt:Date.now() };
+    const s = { id:newId(), nombre:name, zonas:[], grupos:[], tags:[], tagDispositivos:[], tagMarca:[], json, updatedAt:Date.now() };
     screens.unshift(s);
     persist(); closeModal(); openDetail(s.id); renderAll();
   };
@@ -1304,11 +1358,11 @@ function importRepo(file){
     if(Array.isArray(r.data)){
       incoming = r.data.map(x => x && x.json
         ? normalizeScreen(x)
-        : { id:newId(), nombre:"Importada", zonas:[], grupos:[], tagDispositivos:[], tagMarca:[], json:x, updatedAt:Date.now() });
+        : { id:newId(), nombre:"Importada", zonas:[], grupos:[], tags:[], tagDispositivos:[], tagMarca:[], json:x, updatedAt:Date.now() });
     }else if(r.data.json){
       incoming = [ normalizeScreen(r.data) ];
     }else{
-      incoming = [ { id:newId(), nombre:"Importada", zonas:[], grupos:[], tagDispositivos:[], tagMarca:[], json:r.data, updatedAt:Date.now() } ];
+      incoming = [ { id:newId(), nombre:"Importada", zonas:[], grupos:[], tags:[], tagDispositivos:[], tagMarca:[], json:r.data, updatedAt:Date.now() } ];
     }
     const byId = new Map(screens.map(s=>[s.id,s]));
     incoming.forEach(s=> byId.set(s.id, s));
@@ -1317,13 +1371,15 @@ function importRepo(file){
   };
   reader.readAsText(file);
 }
+
 function normalizeScreen(x){
   return {
     id: x.id || newId(),
     nombre: x.nombre || "Sin nombre",
     zonas: Array.isArray(x.zonas) ? x.zonas : (x.zona ? [x.zona] : []),
     grupos: Array.isArray(x.grupos) ? x.grupos : (x.grupo ? [x.grupo] : []),
-    tagDispositivos: Array.isArray(x.tagDispositivos) ? x.tagDispositivos : (Array.isArray(x.tags) ? x.tags : []),
+    tags: Array.isArray(x.tags) ? x.tags : [],
+    tagDispositivos: Array.isArray(x.tagDispositivos) ? x.tagDispositivos : [],
     tagMarca: Array.isArray(x.tagMarca) ? x.tagMarca : [],
     json: x.json || {},
     updatedAt: x.updatedAt || Date.now()
@@ -1409,7 +1465,7 @@ function seed(){
     {
       id:newId(), nombre:"Bienvenida — 2 opciones",
       zonas:["Onboarding"], grupos:["Campaña verano"],
-      tagDispositivos:["SmartTV","Móvil"], tagMarca:["Orange"],
+      tags:["destacado"], tagDispositivos:["SmartTV","Móvil"], tagMarca:["Orange"],
       updatedAt:Date.now(),
       json:{
         images:{ horizontal:"backgrounds/welcome_h.jpg" },
@@ -1426,7 +1482,7 @@ function seed(){
     {
       id:newId(), nombre:"Confirmación con QR",
       zonas:["Activación"], grupos:["Campaña verano"],
-      tagDispositivos:["SmartTV"], tagMarca:["Orange"],
+      tags:["qr","activación"], tagDispositivos:["SmartTV"], tagMarca:["Orange"],
       updatedAt:Date.now(),
       json:{
         images:{ horizontal:"backgrounds/dark.jpg" },
@@ -1442,7 +1498,7 @@ function seed(){
     {
       id:newId(), nombre:"Aviso de mantenimiento",
       zonas:["Sistema"], grupos:["Avisos"],
-      tagDispositivos:[], tagMarca:[],
+      tags:["info"], tagDispositivos:[], tagMarca:[],
       updatedAt:Date.now(),
       json:{
         images:{ horizontal:"backgrounds/plain.jpg" },
