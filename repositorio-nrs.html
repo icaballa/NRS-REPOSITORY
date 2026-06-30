@@ -930,9 +930,15 @@ function renderGrid(){
   if(state.groupBy === "none"){
     groups.set("Todas", list);
   }else{
+    // When a facet filter is active for the current groupBy dimension, only assign
+    // the screen to groups that match that filter (prevents a multi-zone screen from
+    // appearing under unrelated zone groups when filtering by a specific zone).
+    const facetForGroupBy = { zona:"zona", grupo:"grupo" }[state.groupBy];
+    const activeFacet = facetForGroupBy ? state.facets[facetForGroupBy] : null;
     list.forEach(s=>{
       const keys = groupKey(s);
       (Array.isArray(keys)?keys:[keys]).forEach(k=>{
+        if(activeFacet && activeFacet.size > 0 && !activeFacet.has(k)) return;
         if(!groups.has(k)) groups.set(k,[]);
         groups.get(k).push(s);
       });
