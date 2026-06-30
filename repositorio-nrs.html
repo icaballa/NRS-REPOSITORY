@@ -134,19 +134,22 @@
   .group-content{margin-top:10px}
   .group.collapsed .group-content{display:none}
 
-  /* filter by title inside a group */
-  .group-filter-wrap{
-    position:relative;margin-bottom:10px;
+  /* title filter pills inside a group */
+  .group-title-filter{
+    display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;
+    max-height:96px;overflow-y:auto;
   }
-  .group-filter-wrap svg{
-    position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none;
+  .group-title-filter:empty{display:none}
+  .title-filter-pill{
+    display:inline-flex;align-items:center;padding:4px 11px;border-radius:999px;font-size:12px;
+    border:1px solid var(--line-strong);background:var(--surface);
+    color:var(--muted);cursor:pointer;user-select:none;
+    transition:background .1s,border-color .1s,color .1s;
   }
-  .group-filter{
-    width:100%;padding:6px 10px 6px 30px;border:1px solid var(--line);border-radius:7px;
-    background:var(--surface);outline:none;font-size:12px;color:var(--ink);
+  .title-filter-pill:hover{border-color:var(--faint);background:var(--canvas);color:var(--ink)}
+  .title-filter-pill.active{
+    background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);font-weight:600;
   }
-  .group-filter:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);background:#fff}
-  .group-filter::placeholder{color:var(--faint)}
 
   .grid{
     display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;
@@ -438,7 +441,8 @@ const state = {
   baseUrl: localStorage.getItem(LS_BASE) || "https://orangetv.orange.es/pc/api/rtv/v1/images/",
   mode: "horizontal",
   selectedId: null,
-  collapsed: new Set()
+  collapsed: new Set(),
+  titleFilters: new Map()   // Map<groupName, Set<titulo>>
 };
 
 const $ = s => document.querySelector(s);
@@ -674,11 +678,11 @@ const IMG_LABELS = {
   horizontal:"Fondo horizontal", vertical:"Fondo vertical"
 };
 
-/* Recorre recursivamente el objeto y recoge todos los valores string que sean URLs http/https */
+/* Recorre recursivamente el objeto y recoge todos los valores string que sean URIs (cualquier esquema://…) */
 function collectUrls(obj, result, path){
   result = result || []; path = path || "";
   if(typeof obj === "string"){
-    if(/^https?:\/\//i.test(obj.trim())) result.push({ path, value: obj.trim() });
+    if(/^[a-zA-Z][a-zA-Z0-9+\-.]*:\/\//i.test(obj.trim())) result.push({ path, value: obj.trim() });
   } else if(Array.isArray(obj)){
     obj.forEach((v,i) => collectUrls(v, result, path ? path+"["+i+"]" : "["+i+"]"));
   } else if(obj && typeof obj === "object"){
@@ -711,20 +715,17 @@ function extractElements(data){
     out.buttons.push({ key:`acción ${idx+1}`, label:act.buttonLabel||"(sin texto)", action:act.action||act.type||"" });
   });
 
-  // ---- ENLACES: todas las URLs http/https del JSON ----
-  // 1. style.links con título legible
+  // ---- ENLACES: todos los links del JSON ----
+  // 1. style.links completo (cualquier destino, con título legible)
   const styleLinksDestinations = new Set();
   (style.links||[]).forEach(l=>{
-    const dest = l.destination || "";
-    if(dest && /^https?:\/\//i.test(dest.trim())){
-      styleLinksDestinations.add(dest.trim());
-      out.urlValues.push({
-        path: l.title || l.key || "link",
-        value: dest.trim()
-      });
+    const dest = (l.destination || "").trim();
+    if(dest){
+      styleLinksDestinations.add(dest);
+      out.urlValues.push({ path: l.title || l.key || "link", value: dest });
     }
   });
-  // 2. Resto de URLs en el JSON (que no sean ya de style.links)
+  // 2. Resto de URIs en el JSON (cualquier ://) no cubiertas ya por style.links
   collectUrls(data).forEach(u=>{
     if(!styleLinksDestinations.has(u.value)){
       out.urlValues.push(u);
@@ -946,41 +947,50 @@ function renderGrid(){
       group.appendChild(head);
     }
 
-    // group-content holds filter + grid, hidden when collapsed
+    // group-content holds title pills + grid, hidden when collapsed
     const groupContent = document.createElement("div");
     groupContent.className = "group-content";
 
-    // filter by title — visible below the group header
+    // build grid (shared)
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    items.forEach(s=> grid.appendChild(buildCard(s)));
+
+    // title-filter pills — one pill per distinct title within this group
     if(state.groupBy !== "none"){
-      const filterWrap = document.createElement("div");
-      filterWrap.className = "group-filter-wrap";
-      filterWrap.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>`;
-      const filterInput = document.createElement("input");
-      filterInput.type = "text";
-      filterInput.className = "group-filter";
-      filterInput.placeholder = `Filtrar por título en "${gname}"…`;
+      const allTitles = [...new Set(items.map(s=> s.nombre || "Sin nombre"))].sort();
+      const groupTitleFilter = state.titleFilters.get(gname) || new Set();
+      state.titleFilters.set(gname, groupTitleFilter);
 
-      const grid = document.createElement("div");
-      grid.className = "grid";
-      items.forEach(s=> grid.appendChild(buildCard(s)));
-
-      filterInput.oninput = () => {
-        const q = filterInput.value.toLowerCase().trim();
-        grid.querySelectorAll(".card").forEach(card => {
-          const title = (card.querySelector(".card-title")?.textContent || "").toLowerCase();
-          card.style.display = (!q || title.includes(q)) ? "" : "none";
+      function applyTitleFilter(){
+        grid.querySelectorAll(".card").forEach(card=>{
+          const t = card.querySelector(".card-title")?.textContent || "";
+          card.style.display = (!groupTitleFilter.size || groupTitleFilter.has(t)) ? "" : "none";
         });
-      };
-      filterWrap.appendChild(filterInput);
-      groupContent.appendChild(filterWrap);
-      groupContent.appendChild(grid);
-    } else {
-      const grid = document.createElement("div");
-      grid.className = "grid";
-      items.forEach(s=> grid.appendChild(buildCard(s)));
-      groupContent.appendChild(grid);
+      }
+
+      if(allTitles.length > 1){
+        const filterRow = document.createElement("div");
+        filterRow.className = "group-title-filter";
+        allTitles.forEach(title=>{
+          const pill = document.createElement("span");
+          pill.className = "title-filter-pill" + (groupTitleFilter.has(title) ? " active" : "");
+          pill.textContent = title;
+          pill.onclick = ()=>{
+            pill.classList.toggle("active");
+            if(pill.classList.contains("active")) groupTitleFilter.add(title);
+            else groupTitleFilter.delete(title);
+            applyTitleFilter();
+          };
+          filterRow.appendChild(pill);
+        });
+        groupContent.appendChild(filterRow);
+      }
+
+      applyTitleFilter();
     }
 
+    groupContent.appendChild(grid);
     group.appendChild(groupContent);
     scroll.appendChild(group);
   });
@@ -990,6 +1000,12 @@ function buildCard(s){
   const card = document.createElement("div");
   card.className = "card" + (s.id===state.selectedId?" selected":"");
   card.onclick = ()=> openDetail(s.id);
+  card.ondblclick = ()=>{
+    const imgs = s.json?.images || {};
+    const bgPath = imgs.horizontal || imgs.vertical || "";
+    if(bgPath) openLightbox(buildImageUrl(state.baseUrl, bgPath));
+    else toast("Esta pantalla no tiene imagen de fondo definida");
+  };
 
   const thumb = document.createElement("div");
   thumb.className = "thumb";
@@ -1436,7 +1452,7 @@ function renderAll(){
    EVENTOS GLOBALES
    ================================================================= */
 $("#search").addEventListener("input", e=>{ state.search = e.target.value; renderActiveBar(); renderGrid(); });
-$("#groupBy").addEventListener("change", e=>{ state.groupBy = e.target.value; state.collapsed.clear(); renderGrid(); });
+$("#groupBy").addEventListener("change", e=>{ state.groupBy = e.target.value; state.collapsed.clear(); state.titleFilters.clear(); renderGrid(); });
 $("#addBtn").onclick    = openNewScreen;
 $("#exportBtn").onclick = exportRepo;
 $("#importBtn").onclick = ()=> $("#fileInput").click();
