@@ -328,6 +328,24 @@
   .pp-bar .seg button.on{background:rgba(255,255,255,.2);color:#fff}
   .pp-bar .seg button:disabled{opacity:.35}
 
+  /* image lightbox */
+  .ip-overlay{position:fixed;inset:0;background:rgba(10,10,15,.9);display:none;place-items:center;z-index:300}
+  .ip-overlay.open{display:grid}
+  .ip-backdrop{position:absolute;inset:0;cursor:pointer}
+  .ip-box{
+    position:relative;max-width:90vw;max-height:90vh;
+    border-radius:8px;overflow:hidden;
+    box-shadow:0 8px 60px rgba(0,0,0,.7);background:#000;
+  }
+  .ip-img{display:block;max-width:90vw;max-height:88vh;object-fit:contain}
+  .ip-close{
+    position:absolute;top:8px;right:8px;
+    background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.3);
+    color:#fff;font-size:18px;width:32px;height:32px;border-radius:50%;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .ip-close:hover{background:rgba(0,0,0,.85)}
+
   @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -408,6 +426,15 @@
       <button class="pp-close" id="ppClose">×</button>
     </div>
     <div class="pp-host" id="ppHost"></div>
+  </div>
+</div>
+
+<!-- ===== IMAGE LIGHTBOX ===== -->
+<div class="ip-overlay" id="ipOverlay">
+  <div class="ip-backdrop" id="ipBackdrop"></div>
+  <div class="ip-box">
+    <img class="ip-img" id="ipImg" src="" alt="">
+    <button class="ip-close" id="ipClose">×</button>
   </div>
 </div>
 
@@ -1252,7 +1279,7 @@ function renderElements(el){
     sections.push(section("Imágenes", el.images.length, el.images.map(x=>{
       const fullUrl = buildImageUrl(state.baseUrl, x.value);
       const valHtml = fullUrl
-        ? `<a href="${escHtml(fullUrl)}" target="_blank" rel="noopener">${escHtml(x.value)}</a>`
+        ? `<a href="${escHtml(fullUrl)}" onclick="openImagePopup(this.href);return false">${escHtml(x.value)}</a>`
         : escHtml(String(x.value));
       return `<div class="el-row"><span class="el-key">${escHtml(x.label)}</span><span class="el-val path">${valHtml}</span></div>`;
     })));
@@ -1319,6 +1346,20 @@ function closePreviewPopup(){
 
 $("#ppBackdrop").addEventListener("click", closePreviewPopup);
 $("#ppClose").addEventListener("click", closePreviewPopup);
+
+/* =================================================================
+   IMAGE LIGHTBOX
+   ================================================================= */
+function openImagePopup(url){
+  $("#ipImg").src = url;
+  $("#ipOverlay").classList.add("open");
+}
+function closeImagePopup(){
+  $("#ipOverlay").classList.remove("open");
+  $("#ipImg").src = "";
+}
+$("#ipBackdrop").addEventListener("click", closeImagePopup);
+$("#ipClose").addEventListener("click", closeImagePopup);
 
 /* =================================================================
    ACCIONES SOBRE DATOS
@@ -1496,6 +1537,7 @@ document.addEventListener("keydown", e=>{
     e.preventDefault(); $("#search").focus();
   }
   if(e.key==="Escape"){
+    if($("#ipOverlay").classList.contains("open")){ closeImagePopup(); return; }
     if($("#ppOverlay").classList.contains("open")){ closePreviewPopup(); return; }
     if($("#overlay").classList.contains("open")) closeModal();
     else if($("#detail").classList.contains("open")) closeDetail();
