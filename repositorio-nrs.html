@@ -207,9 +207,8 @@
   .seg button{padding:5px 11px;background:#fff;border:none;color:var(--muted);font-size:12px}
   .seg button.on{background:var(--ink);color:#fff}
   .seg button:disabled{opacity:.4;cursor:not-allowed}
-  .preview-host{background:#000;border-radius:8px;overflow:hidden;border:1px solid var(--line);cursor:zoom-in}
+  .preview-host{background:#000;border-radius:8px;overflow:hidden;border:1px solid var(--line);cursor:pointer}
   .preview-host .empty{display:grid;place-items:center;min-height:140px;color:#666;font-size:12px;text-align:center;padding:20px;cursor:default}
-  .preview-host img{cursor:zoom-in}
 
   .field{margin-top:16px}
   .field label{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;
@@ -302,22 +301,32 @@
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  /* lightbox */
-  .lightbox{
-    position:fixed;inset:0;background:rgba(10,10,15,.9);
-    display:none;place-items:center;z-index:200;
+  /* preview popup */
+  .pp-overlay{position:fixed;inset:0;background:rgba(10,10,15,.88);display:none;place-items:center;z-index:200}
+  .pp-overlay.open{display:grid}
+  .pp-backdrop{position:absolute;inset:0;cursor:pointer}
+  .pp-box{
+    position:relative;display:flex;flex-direction:column;
+    max-height:90vh;border-radius:12px;overflow:hidden;
+    box-shadow:0 8px 60px rgba(0,0,0,.7);
   }
-  .lightbox.open{display:grid}
-  .lightbox-inner{position:relative;display:flex;align-items:center;justify-content:center;max-width:92vw;max-height:92vh}
-  .lightbox-inner img{max-width:90vw;max-height:88vh;border-radius:8px;box-shadow:0 4px 40px rgba(0,0,0,.6);display:block}
-  .lightbox-close{
-    position:absolute;top:-16px;right:-16px;
-    background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);color:#fff;
-    font-size:20px;width:34px;height:34px;border-radius:50%;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;line-height:1;
+  .pp-bar{
+    display:flex;align-items:center;gap:10px;padding:10px 14px;
+    background:rgba(22,22,32,.97);flex:0 0 auto;
   }
-  .lightbox-close:hover{background:rgba(255,255,255,.32)}
-  .lightbox-backdrop{position:absolute;inset:0;cursor:zoom-out}
+  .pp-name{flex:1;color:#fff;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pp-host{overflow-y:auto;flex:1;min-height:0;background:#000}
+  .pp-close{
+    background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);
+    color:#fff;font-size:18px;width:32px;height:32px;border-radius:50%;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .pp-close:hover{background:rgba(255,255,255,.28)}
+  /* use a lighter seg inside dark toolbar */
+  .pp-bar .seg{border-color:rgba(255,255,255,.25)}
+  .pp-bar .seg button{background:transparent;color:rgba(255,255,255,.6)}
+  .pp-bar .seg button.on{background:rgba(255,255,255,.2);color:#fff}
+  .pp-bar .seg button:disabled{opacity:.35}
 
   @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
@@ -386,12 +395,19 @@
 <!-- ===== TOAST ===== -->
 <div class="toast" id="toast"></div>
 
-<!-- ===== LIGHTBOX ===== -->
-<div class="lightbox" id="lightbox">
-  <div class="lightbox-backdrop" id="lightboxBackdrop"></div>
-  <div class="lightbox-inner">
-    <button class="lightbox-close" id="lightboxClose">×</button>
-    <img id="lightboxImg" src="" alt="">
+<!-- ===== PREVIEW POPUP ===== -->
+<div class="pp-overlay" id="ppOverlay">
+  <div class="pp-backdrop" id="ppBackdrop"></div>
+  <div class="pp-box" id="ppBox">
+    <div class="pp-bar">
+      <span class="pp-name" id="ppName"></span>
+      <span class="seg">
+        <button id="ppH">Horizontal</button>
+        <button id="ppV">Vertical</button>
+      </span>
+      <button class="pp-close" id="ppClose">×</button>
+    </div>
+    <div class="pp-host" id="ppHost"></div>
   </div>
 </div>
 
@@ -650,8 +666,6 @@ function mountPreview(container, data, opts){
     ? imgs.vertical : imgs.horizontal;
   const bgUrl = bgPath ? buildImageUrl(opts.baseUrl||state.baseUrl, bgPath) : "";
   preview.style.backgroundImage = bgUrl ? `url('${bgUrl}')` : "none";
-  // Store bg URL for lightbox
-  preview.dataset.bgUrl = bgUrl;
 
   preview.innerHTML = renderInner(data || {}, { baseUrl: opts.baseUrl || state.baseUrl, mode });
   wrapper.appendChild(preview);
@@ -1000,12 +1014,7 @@ function buildCard(s){
   const card = document.createElement("div");
   card.className = "card" + (s.id===state.selectedId?" selected":"");
   card.onclick = ()=> openDetail(s.id);
-  card.ondblclick = ()=>{
-    const imgs = s.json?.images || {};
-    const bgPath = imgs.horizontal || imgs.vertical || "";
-    if(bgPath) openLightbox(buildImageUrl(state.baseUrl, bgPath));
-    else toast("Esta pantalla no tiene imagen de fondo definida");
-  };
+  card.ondblclick = ()=> openPreviewPopup(s.json, s.nombre);
 
   const thumb = document.createElement("div");
   thumb.className = "thumb";
@@ -1129,9 +1138,14 @@ function renderDetail(s){
     ph.innerHTML = `<div class="empty" style="cursor:default">Sin plantilla. Define <code>style.name</code> en el JSON.</div>`;
   }
 
-  // lightbox: click on any <img> → open with img.src
-  //           click on preview background → open bg image if present
-  attachLightboxToPreview(ph);
+  // Track the JSON currently rendered in the multimedia preview.
+  // Updated on live JSON edits so clicking the preview opens the latest version.
+  let liveJson = s.json;
+
+  // Click on multimedia preview → open full preview popup with current json
+  ph.removeEventListener("click", ph._ppHandler);
+  ph._ppHandler = ()=>{ if(ph.querySelector(".empty")) return; openPreviewPopup(liveJson, s.nombre); };
+  ph.addEventListener("click", ph._ppHandler);
 
   // mode toggle
   $("#hBtn").onclick = ()=>{ state.mode="horizontal"; renderDetail(s); };
@@ -1160,9 +1174,9 @@ function renderDetail(s){
     const r = tryParse(ta.value);
     const st = $("#jsonStatus");
     if(r.ok){
+      liveJson = r.data;
       st.textContent="válido"; st.className="json-status ok"; ta.classList.remove("err");
       mountPreview(ph, r.data, { mode:state.mode, fit:"contain" });
-      attachLightboxToPreview(ph);
       renderElements(extractElements(r.data));
     }else{
       st.textContent="JSON con error"; st.className="json-status err"; ta.classList.add("err");
@@ -1178,24 +1192,6 @@ function renderDetail(s){
   $("#dlJson").onclick   = ()=> download(`${(s.nombre||'pantalla').replace(/\s+/g,'_')}.json`, ta.value);
 }
 
-/* Adjunta delegación de clics para el lightbox al contenedor de preview */
-function attachLightboxToPreview(container){
-  // Remove previous listener by replacing with a clone (simple approach for delegated events)
-  const handler = e => {
-    const img = e.target.closest("img");
-    if(img && img.src && !img.src.startsWith("data:")){
-      openLightbox(img.src); return;
-    }
-    // Click on the preview background
-    const previewEl = e.target.closest(".preview");
-    if(previewEl && previewEl.dataset.bgUrl){
-      openLightbox(previewEl.dataset.bgUrl);
-    }
-  };
-  container.removeEventListener("click", container._lbHandler);
-  container._lbHandler = handler;
-  container.addEventListener("click", handler);
-}
 
 function drawPillEditor(containerId, arr, placeholder, suggestions){
   const wrap = document.getElementById(containerId);
@@ -1276,19 +1272,47 @@ function renderElements(el){
 }
 
 /* =================================================================
-   LIGHTBOX
+   PREVIEW POPUP
    ================================================================= */
-function openLightbox(src){
-  if(!src) return;
-  $("#lightboxImg").src = src;
-  $("#lightbox").classList.add("open");
+let ppMode = "horizontal";
+
+function openPreviewPopup(json, nombre){
+  if(!json) return;
+  const hasV = !!(json.images?.vertical && String(json.images.vertical).trim());
+  const hasTemplate = !!(json.style?.name);
+  if(!hasTemplate && !json.images) return;
+
+  $("#ppName").textContent = nombre || "Previsualización";
+
+  const hBtn = $("#ppH");
+  const vBtn = $("#ppV");
+  vBtn.disabled = !hasV;
+
+  function render(mode){
+    ppMode = mode;
+    hBtn.className = mode === "horizontal" ? "on" : "";
+    vBtn.className = mode === "vertical" ? "on" : "";
+    // Size the popup box to match the design width
+    const DESIGN_W = mode === "vertical" ? 600 : 900;
+    const maxW = Math.min(DESIGN_W + 32, window.innerWidth * 0.94);
+    $("#ppBox").style.width = maxW + "px";
+    mountPreview($("#ppHost"), json, { mode, fit:"contain" });
+  }
+
+  hBtn.onclick = ()=> render("horizontal");
+  vBtn.onclick = ()=>{ if(hasV) render("vertical"); };
+
+  render(hasV && ppMode === "vertical" ? "vertical" : "horizontal");
+  $("#ppOverlay").classList.add("open");
 }
-function closeLightbox(){
-  $("#lightbox").classList.remove("open");
-  setTimeout(()=>{ $("#lightboxImg").src = ""; }, 200);
+
+function closePreviewPopup(){
+  $("#ppOverlay").classList.remove("open");
+  $("#ppHost").innerHTML = "";
 }
-$("#lightboxBackdrop").addEventListener("click", closeLightbox);
-$("#lightboxClose").addEventListener("click", closeLightbox);
+
+$("#ppBackdrop").addEventListener("click", closePreviewPopup);
+$("#ppClose").addEventListener("click", closePreviewPopup);
 
 /* =================================================================
    ACCIONES SOBRE DATOS
@@ -1466,7 +1490,7 @@ document.addEventListener("keydown", e=>{
     e.preventDefault(); $("#search").focus();
   }
   if(e.key==="Escape"){
-    if($("#lightbox").classList.contains("open")){ closeLightbox(); return; }
+    if($("#ppOverlay").classList.contains("open")){ closePreviewPopup(); return; }
     if($("#overlay").classList.contains("open")) closeModal();
     else if($("#detail").classList.contains("open")) closeDetail();
   }
